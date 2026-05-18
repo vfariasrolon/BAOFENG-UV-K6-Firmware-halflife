@@ -9,68 +9,68 @@ String disBuf[17];
 
 const STR_MENU_ITEM MenuList[] = 
 {
-    {vo_Null,   "CHL Name","信道名称"},
-    {vo_Null,   "RX Frequency","接收频率" },
-    {vo_Null,   "TX Frequency","发射频率"},
-    {vo_CTCSS,  "R-CTCSS","接收模拟亚音"},
-    {vo_DCS,    "R-DCS","接收数字亚音"},
-    {vo_CTCSS,  "T-CTCSS","发射模拟亚音"},
-    {vo_DCS,    "T-DCS","发射数字亚音"},
-    {vo_Chlbandwidth,"BandWidth","信道带宽"},
-    {vo_power,  "TXP","发射功率"},
-    {vo_Null,   "Silence Mode" ,"静噪模式" },
-    {vo_Null,   "TX Forbid","发射禁止"},
-    {vo_Freqdir,"Shift DIR","频差方向"},
-    {vo_Offsetfreq,"OFFSET","频差频率"},
-    {vo_Memorychl,"MEMCH","信道存储"},
-    {vo_Deletechl,"DELCH","信道删除"},
-    {vo_Null,    "VFO FreqRang","VFO扫描范围"},
-    {vo_Null,    "Scan Mode","扫描模式"},
-    {vo_Null,    "DTMFST","侧音开关"},
-    {vo_Null,    "PTT ID","DTMF发码"},
-    {vo_Null,    "PTT-LT","发码附加延迟" },
-    {vo_Squelch, "Squelch","静噪等级"},
-    {vo_savemode,"RX Save","省电模式"},
-    {vo_VOX,     "VOX Switch","声控开关"},
-    {vo_Null,    "VOX Level","声控等级"},
-    {vo_Null,    "VOX Delay","声控延时"},
-    {vo_Txovertime,"TX OVer Time","发射超时"},
-    {vo_Voicepromrt,"Language","菜单语言"},
-    {vo_Null,    "VOICE","语音提示开关"},
-    {vo_Null,    "Menu HangTime","菜单挂起时间"},
-    {vo_Beepprompt,"BEEP PROMPT","按键音开关"},
-    {vo_Null,    "Roger Beep","通话结束提示音"},
-    {vo_Null,    "POWER ON TYPE","开机画面选择"},
-    {vo_Null,    "Power On Tone","开机提示音"},
-    {vo_Null,    "Power on MSG","开机信息"},
-    {vo_Null,    "POWER ON PWD","开机密码"},
-    {vo_Dualstandby,"Dual Watch","双频守候"},
-    {vo_Null,    "MDF-A","A段显示模式"},
-    {vo_Null,    "MDF-B","B段显示模式"},
-    {vo_Null,    "RP-STE","中继尾音消除"},
-    {vo_Null,    "RPT-RL","中继尾声延时"},
-    {vo_Null,    "ALERT","中继激活音频" },
-    {vo_Step,    "Freq Step","步进频率"},
-    {vo_Busylockout,"Busy Lockout","繁忙锁定"},
-    {vo_Null,    "Side Tone","尾音消除"},
-    {vo_Null,    "Alarm Mode","报警模式"},
-    {vo_Null,    "PF1","侧键1短按"},
-    {vo_Null,    "PF1 LONG PRESS","侧键1长按" },
-    {vo_Null,    "PF2", "侧键2短按"},
-    {vo_Null,    "ABR","自动背光灯"},
-    {vo_Null,    "Brightness","LCD对比度"},
-    {vo_Null,    "LCD Reflex","反射屏幕"},
-    {vo_Null,    "AUTOLOCK","自动键盘锁"},
-    {vo_Null,    "Radio Interrupt","收音打断"},
-    {vo_initialization,"Reset","恢复出厂设置"},
-    {vo_Null,    "STOP WATCH","秒表功能"},
-    {vo_Null,    "VERSION","版本信息"},
+    {vo_Null,   "CHL Name","NOM CANAL"},
+    {vo_Null,   "RX Frequency","FREQ REC" },
+    {vo_Null,   "TX Frequency","FREQ TRANS"},
+    {vo_CTCSS,  "R-CTCSS","R-CTCSS"},
+    {vo_DCS,    "R-DCS","R-DCS"},
+    {vo_CTCSS,  "T-CTCSS","T-CTCSS"},
+    {vo_DCS,    "T-DCS","T-DCS"},
+    {vo_Chlbandwidth,"BandWidth","ANCHO BANDA"},
+    {vo_power,  "TXP","POTENCIA TX"},
+    {vo_Null,   "Silence Mode" ,"SILENCIO" },
+    {vo_Null,   "TX Forbid","BLOQUEO TX"},
+    {vo_Freqdir,"Shift DIR","DIR DESV"},
+    {vo_Offsetfreq,"OFFSET","DESVIACION"},
+    {vo_Memorychl,"MEMCH","MEM CANAL"},
+    {vo_Deletechl,"DELCH","BORRAR CANAL"},
+    {vo_Null,    "VFO FreqRang","RANGO VFO"},
+    {vo_Null,    "Scan Mode","MDO ESCAN"},
+    {vo_Null,    "DTMFST","DTMFST"},
+    {vo_Null,    "PTT ID","PTT ID"},
+    {vo_Null,    "PTT-LT","RETARDO PTT" },
+    {vo_Squelch, "Squelch","SILENCIADOR"},
+    {vo_savemode,"RX Save","AHORRO RX"},
+    {vo_VOX,     "VOX Switch","VOX"},
+    {vo_Null,    "VOX Level","NIVEL VOX"},
+    {vo_Null,    "VOX Delay","RETARDO VOX"},
+    {vo_Txovertime,"TX OVer Time","LIMITE TX"},
+    {vo_Voicepromrt,"Language","IDIOMA"},
+    {vo_Null,    "VOICE","VOZ PANT"},
+    {vo_Null,    "Menu HangTime","PERM MENU"},
+    {vo_Beepprompt,"BEEP PROMPT","BEEP TECLADO"},
+    {vo_Null,    "Roger Beep","BEEP ROGER"},
+    {vo_Null,    "POWER ON TYPE","MODO ENC"},
+    {vo_Null,    "Power On Tone","TONO ENC"},
+    {vo_Null,    "Power on MSG","MSG ENC"},
+    {vo_Null,    "POWER ON PWD","PASS ENC"},
+    {vo_Dualstandby,"Dual Watch","DOBLE ESCU"},
+    {vo_Null,    "MDF-A","PANT A"},
+    {vo_Null,    "MDF-B","PANT B"},
+    {vo_Null,    "RP-STE","RP-STE"},
+    {vo_Null,    "RPT-RL","RPT-RL"},
+    {vo_Null,    "ALERT","ALERTA" },
+    {vo_Step,    "Freq Step","PASO FREQ"},
+    {vo_Busylockout,"Busy Lockout","BLOQ OCUP"},
+    {vo_Null,    "Side Tone","TONO LATERAL"},
+    {vo_Null,    "Alarm Mode","MODO ALARMA"},
+    {vo_Null,    "PF1","TECLA PF1"},
+    {vo_Null,    "PF1 LONG PRESS","PF1 LARGO" },
+    {vo_Null,    "PF2", "TECLA PF2"},
+    {vo_Null,    "ABR","LUM PANT"},
+    {vo_Null,    "Brightness","BRILLO"},
+    {vo_Null,    "LCD Reflex","INV PANT"},
+    {vo_Null,    "AUTOLOCK","BLOQ AUT"},
+    {vo_Null,    "Radio Interrupt","INT RADIO"},
+    {vo_initialization,"Reset","RESET"},
+    {vo_Null,    "STOP WATCH","CRONOMETRO"},
+    {vo_Null,    "VERSION","VERSION"},
 };
 
 const STR_MENU_ITEM MenuFmList[] = 
 {
-    {vo_Null,    "FM MEMCH","FM信道存储"},
-    {vo_Null,    "FM BAND", "FM工作频段"},
+    {vo_Null,    "FM MEMCH","MEM CANAL FM"},
+    {vo_Null,    "FM BAND", "BANDA FM"},
 };
 
 const String *VoxCnStr[] = 
@@ -89,10 +89,10 @@ const String *VoxCnStr[] =
 
 const String *BatSaveCnStr[] = 
 {
-    "关闭",
+    "APAGADO",
     "1:1",
     "1:2",
-    "1:4",
+    "1:4"
 };
 const String *BatSaveEnStr[] = 
 {
@@ -104,8 +104,8 @@ const String *BatSaveEnStr[] =
 
 const String *OnOffCnStr[] = 
 {
-    "关闭",
-    "开启"
+    "APAGADO",
+    "ENCENDIDO"
 };
 const String *OnOffEnStr[] = 
 {
@@ -115,7 +115,7 @@ const String *OnOffEnStr[] =
 
 const String *OnSelCnStr[] = 
 {
-    "开启"
+    "ENCENDIDO"
 };
 const String *OnSelEnStr[] = 
 {
@@ -124,9 +124,9 @@ const String *OnSelEnStr[] =
 
 const String *AlmodCnStr[] = 
 {
-    "现场报警",
-    "发送报警音",
-    "发送报警码"
+    "LOCAL",
+    "SONIDO",
+    "CODIGO"
 };
 const String *AlmodEnStr[] = 
 {
@@ -137,9 +137,9 @@ const String *AlmodEnStr[] =
 
 const String *ScanmodCnStr[] = 
 {
-    "时间",
-    "载波",
-    "搜索"
+    "TO",
+    "CO",
+    "SE"
 };
 const String *ScanmodEnStr[] = 
 {
@@ -150,10 +150,10 @@ const String *ScanmodEnStr[] =
 
 const String *PttIdSelCnStr[] = 
 {
-    "关闭",
-    "按下PTT发码",
-    "松开PTT发码",
-    "同时发码" 
+    "APAGADO",
+    "INICIO",
+    "FINAL",
+    "AMBOS"
 };
 const String *PttIdSelEnStr[] = 
 {
@@ -165,8 +165,8 @@ const String *PttIdSelEnStr[] =
 
 const String *BandCnStr[] = 
 {
-    "窄带",
-	"宽带",
+    "ANCHO",
+    "ESTRECHO"
 };
 const String *BandEnStr[] = 
 {
@@ -176,8 +176,8 @@ const String *BandEnStr[] =
 
 const String *TxPowerCnStr[] = 
 {
-    "高功率",
-    "低功率"
+    "ALTO",
+    "BAJO"
 };
 const String *TxPowerEnStr[] = 
 {
@@ -199,7 +199,7 @@ const String *VfoStepStr[] =
 
 const String *VfoDirCnStr[] = 
 {
-    "关闭",
+    "APAGADO",
     "+",
     "-"
 };
@@ -213,10 +213,10 @@ const String *VfoDirEnStr[] =
 
 const String *ChDisCnStr[] = 
 {
-    "信道名称",
-    "信道频率",
-    "信道号",
-    "名称+频率"
+    "NOMBRE",
+    "FREQ",
+    "CANAL",
+    "NOM+FREQ"
 };
 
 const String *ChDisEnStr[] = 
@@ -230,15 +230,15 @@ const String *ChDisEnStr[] =
 const String *LanStr[] = 
 {
     "ENGLISH",
-    "中文"
+    "ESPANOL"
 };
 
 const String *DtmfSetSelCnStr[] = 
 {
-    "关闭",
-    "按键侧音",
-    "身份码",
-    "按键+身份码"
+    "APAGADO",
+    "DT-ST",
+    "ANI-ST",
+    "DT+ANI"
 };
 const String *DtmfSetSelEnStr[] = 
 {
@@ -250,8 +250,8 @@ const String *DtmfSetSelEnStr[] =
 
 const String *DevResetCnStr[] = 
 {
-    "频率模式",
-    "全部"
+    "VFO",
+    "TODO"
 };
 
 const String *DevResetEnStr[] = 
@@ -270,9 +270,9 @@ const String *ToneEnStr[] =
 
 const String *PwrOnCnStr[] = 
 {
-    "预设图标",
-    "预设信息",
-    "电池电压"
+    "LOGO",
+    "MENSAJE",
+    "VOLTAJE"
 };
 const String *PwrOnEnStr[] = 
 {
@@ -283,13 +283,13 @@ const String *PwrOnEnStr[] =
 
 const String *SideKeyCnStr[] = 
 {
-    "无",
-    "手电筒开关",
-    "功率选择",
-    "扫描开关",
-    "声控开关",
-    "警报开关",
-    "收音机开关",
+    "NINGUNA",
+    "LINTERNA",
+    "POTENCIA",
+    "ESCANER",
+    "VOX",
+    "ALARMA",
+    "RADIO FM"
 };
 const String *SideKeyEnStr[] = 
 {
@@ -304,7 +304,7 @@ const String *SideKeyEnStr[] =
 
 const String *RxEndTailSelCnStr[] = 
 {
-    "关闭",
+    "APAGADO",
     "MDC1200"
 };
 
@@ -316,8 +316,8 @@ const String *RxEndTailSelEnStr[] =
 
 const String *TxEndToneCnStr[] =
 {
-    "关闭",
-    "嘀嘟音",
+    "APAGADO",
+    "BEEP",
     "TONE1200"
 };
 
@@ -330,8 +330,8 @@ const String *TxEndToneEnStr[] =
 
 const String *ReflexCnStr[] = 
 {
-    "正常",
-    "反射"
+    "NORMAL",
+    "INVERTIDO"
 };
 
 const String *ReflexEnStr[] = 
@@ -349,15 +349,15 @@ const String *PwrOnToneSelEnStr[] =
 
 const String *PwrOnToneSelCnStr[] = 
 {
-    "无",
-    "音调",
-    "语音"
+    "NINGUNO",
+    "TONO",
+    "VOZ"
 };
 
 const String *SpMuteSelCnStr[] = 
 {
-    "亚音",
-    "亚音+可选信令",
+    "CTDCS",
+    "CTDCS+SE"
 };
 
 const String *SpMuteSelEnStr[] = 
@@ -368,9 +368,9 @@ const String *SpMuteSelEnStr[] =
 
 const String *DualSelCnStr[] = 
 {
-    "关闭",
-    "双段双守",
-    "双段单守",
+    "APAGADO",
+    "DOBLE ESP",
+    "ESPERA SIG"
 };
 
 const String *DualSelEnStr[] = 
@@ -1231,5 +1231,4 @@ extern void Menu_Display(void)
     }
     UpdateMenuDisplay();
 }
-
 

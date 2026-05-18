@@ -35,6 +35,29 @@ int main(void)
     {
         DisplaySoftVersion();
     }
+    
+    // Half-Life OTAP Slave activation (Hold Side Key 2 at boot and press A/B)
+    if(GetKeyCode() == KEYID_SIDEKEY2)
+    {
+        BeepOut(BEEP_FASTSW);
+        SC5260_ClearArea(0, 0, 128, 64, 0);
+        LCD_DisplayText(15, 12, (U8 *)"OTAP ENLACE", FONTSIZE_16x16, LCD_DIS_NORMAL);
+        LCD_DisplayText(35, 12, (U8 *)"PULSE [A/B] CONFIRMAR", FONTSIZE_12x12, LCD_DIS_NORMAL);
+        
+        U16 timeout = 0;
+        while(timeout < 200) // 2 seconds window
+        {
+            DelayMs(10);
+            if(GetKeyCode() == KEYID_AB)
+            {
+                g_sysRunPara.sysRunMode = MODE_SLAVE_LISTEN;
+                BeepOut(BEEP_FMSW2);
+                break;
+            }
+            timeout++;
+        }
+    }
+
     RadioVfoInfo_Init();
 
     ResetTimeKeyLockAndPowerSave();
@@ -48,7 +71,11 @@ int main(void)
     g_rfTxState = TX_READY;
     g_rfRxState = RX_READY;
     g_scanInfo.state = SCAN_IDLE;
-    g_sysRunPara.sysRunMode = MODE_MAIN;
+    
+    if (g_sysRunPara.sysRunMode != MODE_SLAVE_LISTEN)
+    {
+        g_sysRunPara.sysRunMode = MODE_MAIN;
+    }
     g_keyScan.keyEvent = KEYID_NONE;
     
     while(1)

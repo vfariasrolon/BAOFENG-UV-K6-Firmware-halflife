@@ -32,6 +32,18 @@ extern void ExitAllFunction(U8 flag)
         return;
     }
 
+    if(g_sysRunPara.sysRunMode == MODE_HL_MENU ||
+       g_sysRunPara.sysRunMode == MODE_DASHBOARD ||
+       g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
+    {
+        g_sysRunPara.sysRunMode = MODE_MAIN;
+        extern void DisplayHomePage(void);
+        extern void RxReset(void);
+        DisplayHomePage();
+        RxReset();
+        return;
+    }
+
     /*if(g_sysRunPara.sysRunMode != MODE_MAIN)
     {
         DisplayHomePage();

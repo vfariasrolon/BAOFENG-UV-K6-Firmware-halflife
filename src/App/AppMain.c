@@ -90,13 +90,25 @@ extern void SideKey_Process(U8 realEvent)
             }
             break;
         case KEYID_FM:
-            if(g_sysRunPara.sysRunMode == MODE_FM)
+            if (g_sysRunPara.sysRunMode == MODE_HL_MENU ||
+                g_sysRunPara.sysRunMode == MODE_DASHBOARD ||
+                g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN ||
+                g_sysRunPara.sysRunMode == MODE_MASTER_PAIR ||
+                g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
             {
-                ExitFmMode();
+                g_sysRunPara.sysRunMode = MODE_MAIN;
+                BeepOut(BEEP_EXITMENU);
+                DisplayHomePage();
+                RxReset();
             }
             else
             {
-                EnterFmMode();
+                g_sysRunPara.sysRunMode = MODE_HL_MENU;
+                extern U8 g_hlMenuIndex;
+                g_hlMenuIndex = 0;
+                BeepOut(BEEP_FASTSW);
+                extern void UI_DisplayHlMenu(void);
+                UI_DisplayHlMenu();
             }
             break;
         default:
@@ -289,6 +301,21 @@ extern void KeyProcess_Main(U8 keyEvent)
             BeepOut(BEEP_FMSW1);
             break;
         case KEYID_BAND:
+            {
+                U8 activeAB = g_ChannelVfoInfo.switchAB;
+                // Cycle scrambler seed: 0 (Off), 1, 2, 3, 4
+                g_ChannelVfoInfo.chVfoInfo[activeAB].scarmble = 
+                    (g_ChannelVfoInfo.chVfoInfo[activeAB].scarmble + 1) % 5;
+                
+                extern void Rfic_SetScramble(U8 group, U32 freq);
+                Rfic_SetScramble(
+                    g_ChannelVfoInfo.chVfoInfo[activeAB].scarmble,
+                    g_ChannelVfoInfo.chVfoInfo[activeAB].rx->frequency
+                );
+                
+                BeepOut(BEEP_FASTSW);
+                DisplayHomePage();
+            }
             break;
         case KEYID_STAR:
             Radio_ReverseSwitch();

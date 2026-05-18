@@ -100,7 +100,7 @@ void LCD_DisplayNumber( U8 posY, U8 posX, U8 *pString,U8 flagInvert)
 
 void LCD_DrawRectangle( U8 posY, U8 posX, U8 length, U8 wide, U8 flagFill )
 {
-    SC5260_ClearArea(posY, posX, length, wide, flagFill);
+    SC5260_ClearArea(posY, posX, length, wide, 1);
     if( flagFill == 0 )
     {
         if( length > 2 && wide > 2 )

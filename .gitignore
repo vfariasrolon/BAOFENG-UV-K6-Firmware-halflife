@@ -9,3 +9,7 @@ bf_uvk6
 !Libraries/CMSIS/Device/suport/**/*.s
 .vscode
 .pio
+venv/
+__pycache__/
+*.pyc
+*.pyo

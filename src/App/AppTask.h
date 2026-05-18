@@ -14,7 +14,12 @@ enum WORKMODE_Type
     MODE_STOPWATCH,
     MODE_DTMF,
     MODE_PROGRAM,
-    MODE_FLASH_PROGRAM
+    MODE_FLASH_PROGRAM,
+    MODE_SLAVE_LISTEN,
+    MODE_MASTER_PAIR,
+    MODE_DASHBOARD,
+    MODE_HL_MENU,
+    MODE_DTMF_ANI
 };
 /***********************************************************************************************/    
 
