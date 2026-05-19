@@ -67,6 +67,65 @@ extern void UartSendBuf(U8 *buf,U16 len)
 ***********************************************************************/
 extern void CheckProgromMode(U8 rxData)
 {
+    // Real-Time Beken SPI Register Debugger API (Half-Life Debug console)
+    static U8 dbgState = 0;
+    static U8 dbgReg = 0;
+    static U8 dbgValMsb = 0;
+    
+    if (dbgState == 0)
+    {
+        if (rxData == 0xFE) // Write RFIC Reg Header
+        {
+            dbgState = 1;
+            return;
+        }
+        else if (rxData == 0xFD) // Read RFIC Reg Header
+        {
+            dbgState = 4;
+            return;
+        }
+    }
+    else if (dbgState == 1) // Expecting Reg Address for Write
+    {
+        dbgReg = rxData;
+        dbgState = 2;
+        return;
+    }
+    else if (dbgState == 2) // Expecting MSB Value for Write
+    {
+        dbgValMsb = rxData;
+        dbgState = 3;
+        return;
+    }
+    else if (dbgState == 3) // Expecting LSB Value for Write -> Execute write!
+    {
+        U16 val = ((U16)dbgValMsb << 8) | rxData;
+        Rfic_WriteWord(dbgReg, val);
+        
+        // Echo ACK back to PC
+        uartSendChar(0xFE);
+        uartSendChar(dbgReg);
+        uartSendChar(dbgValMsb);
+        uartSendChar(rxData);
+        
+        dbgState = 0;
+        return;
+    }
+    else if (dbgState == 4) // Expecting Reg Address for Read -> Execute read!
+    {
+        dbgReg = rxData;
+        U16 val = Rfic_ReadWord(dbgReg);
+        
+        // Return values back to PC
+        uartSendChar(0xFD);
+        uartSendChar(dbgReg);
+        uartSendChar((val >> 8) & 0xFF);
+        uartSendChar(val & 0xFF);
+        
+        dbgState = 0;
+        return;
+    }
+
     static U8 rxPreData;
     
     progrom.timeOut = UART_TIMEOUT;
