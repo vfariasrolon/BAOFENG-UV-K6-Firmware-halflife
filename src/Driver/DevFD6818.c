@@ -913,7 +913,7 @@ void Rfic_RxTxOnOffSetup(U8  ON_FLAG)
                 break;
             case RFIC_TXON:
             case RFIC_TXTONE:
-                Rfic_WriteWord(0x30, 0x0003);
+                Rfic_WriteWord(0x30, 0x0007);
                 break;
             default:
             case RFIC_IDLE:
