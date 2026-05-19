@@ -48,6 +48,7 @@ static  U32  DCS_DATA;               // 二进制数据流
 static  U8   ctsDcsCodeType;
 
 static U8  RF_Baseband_Mode = ModeFM;        // Rfic工作模式
+U8 g_isBK4829 = 0;
 
 void CTCSSCaleSkipFreq(U16 hopping_code, U16 pre_code, U16 ctc)
 {
@@ -512,6 +513,10 @@ void Rfic_SetPA(U16 dat)
 
 void Rfic_MicIn_Disable(void)
 {
+    if (g_isBK4829)
+    {
+        return;
+    }
     U16 temp;
 
     temp = Rfic_ReadWord(0x30) & 0xFFFB;
@@ -520,6 +525,10 @@ void Rfic_MicIn_Disable(void)
 
 void Rfic_MicIn_Enable(void)
 {
+    if (g_isBK4829)
+    {
+        return;
+    }
     U16 temp;
 
     temp = Rfic_ReadWord(0x30) | 0x0004;
@@ -698,12 +707,23 @@ void RF_SetAfResponse(U8 tx, U8 f3k, U8 db) //参数：发射or接收，3k频响
 
 void Rfic_Sleep(void) 
 {
+    if (g_isBK4829)
+    {
+        Rfic_WriteWord(0x30, 0x0000);
+        return;
+    }
     Rfic_WriteWord(0x30,0x0000);
     Rfic_WriteWord(0x37,REG_37); //current~=200uA
 }
 
 void Rfic_WakeUp(void) 
 {
+    if (g_isBK4829)
+    {
+        Rfic_WriteWord(0x30, 0x0002);
+        Rfic_WriteWord(0x01, 0x3FF0);
+        return;
+    }
     Rfic_WriteWord(0x37,REG_37 | 0xF); //[1]xtal;[0]bg
 }
 
@@ -711,14 +731,36 @@ void Rfic_WakeUp(void)
 void  Rfic_Init(void)
 {     
     U16 temp;
-#if 0
-        U16 chipID;
-    
-        chipID = Rfic_ReadWord(0);
-        uartSendChar(0xAA);
-        uartSendChar(chipID >> 8);
-        uartSendChar(chipID);
-#endif  
+    U16 chipID = Rfic_ReadWord(0);
+
+    if (chipID == 0x4829) {
+        g_isBK4829 = 1;
+    } else {
+        g_isBK4829 = 0;
+    }
+
+    if (g_isBK4829) {
+        // Soft Reset RF
+        Rfic_WriteWord(0x00, 0x0000);
+        Rfic_delay(10);
+        
+        // Configuración del Reloj de Referencia (Cristal de 26 MHz)
+        Rfic_WriteWord(0x01, 0x3FF0);
+        
+        // Registro Maestro del Squelch (Sensible por defecto)
+        Rfic_WriteWord(0x48, 0x2340);
+        
+        // Configuración de LNA e IF Gain
+        Rfic_WriteWord(0x70, 0x00E0);
+        
+        // Filtros pasa-banda
+        Rfic_WriteWord(0x74, 0x3B2D);
+        
+        // Modo RX por defecto
+        Rfic_WriteWord(0x30, 0x0002);
+        return;
+    }
+
     //Soft Reset RF
     Rfic_WriteWord(0x00,0x8000);
     Rfic_WriteWord(0x00,0x0000);
@@ -869,6 +911,26 @@ void  Rfic_BandInitial(U32 freq)
 ***********************************************************************/
 void Rfic_RxTxOnOffSetup(U8  ON_FLAG)
 {
+    if (g_isBK4829)
+    {
+        switch(ON_FLAG)
+        {
+            case RFIC_RXON:
+            case RFIC_TONE:
+                Rfic_WriteWord(0x30, 0x0002);
+                break;
+            case RFIC_TXON:
+            case RFIC_TXTONE:
+                Rfic_WriteWord(0x30, 0x0003);
+                break;
+            default:
+            case RFIC_IDLE:
+                Rfic_WriteWord(0x30, 0x0000);
+                break;
+        }
+        return;
+    }
+
     if(g_CurrentVfo->wideNarrow == BAND_WIDE && (ON_FLAG == RFIC_RXON || ON_FLAG == RFIC_TXON))
     {
         Rfic_WriteWord(0x30, 0x0200);
@@ -907,6 +969,18 @@ U8  Rfic_GetRxTxState(void)
     U16 temp;
 
     temp = Rfic_ReadWord(0x30);
+    if (g_isBK4829)
+    {
+        if (temp & 0x0001)
+        {
+            return 1;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+
     if(temp & 0X0002)
     {// 发射状态
         return 1;
@@ -946,6 +1020,24 @@ U8  Rfic_GetNoiseVal(void)
 ***********************************************************************/
 void Rfic_SQLSetup()
 {
+    if (g_isBK4829)
+    {
+        if (g_sysRunPara.moniFlag || g_radioInform.sqlLevel == 0)
+        {
+            Rfic_WriteWord(0x48, 0x0000);
+        }
+        else
+        {
+            const U16 BK4829_SQL_TAB[10] = {0x0000, 0x1540, 0x1B40, 0x2040, 0x2340, 0x2640, 0x2940, 0x2C40, 0x3040, 0x3440};
+            U8 level = g_radioInform.sqlLevel;
+            if (level > 9) {
+                level = 9;
+            }
+            Rfic_WriteWord(0x48, BK4829_SQL_TAB[level]);
+        }
+        return;
+    }
+
     U8 index;
     U8 i;
     U16 FREQ_TEMP;
@@ -1036,6 +1128,11 @@ void Rfic_SetAfout(U8  state)
         reg47h |= 0x0600;
     }
     Rfic_WriteWord(0x47,reg47h );
+
+    if (g_isBK4829)
+    {
+        return;
+    }
 
     if(state == 3 || state == 0xF1)
     {//Beep音 独立调整音量大小

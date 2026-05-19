@@ -62,6 +62,11 @@ extern void SideKey_Process(U8 realEvent)
             g_sysRunPara.ledState = (g_sysRunPara.ledState+1)%3;
             LightSwitch(g_sysRunPara.ledState);
             BeepOut(BEEP_FASTSW);
+            if (g_sysRunPara.ledState != 0) {
+                EnterMoniMode();
+            } else {
+                ExitMoniMode();
+            }
             break;
         case KEYID_PWRSW:
             Radio_TxPowerSWitch();

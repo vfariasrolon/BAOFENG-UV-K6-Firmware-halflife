@@ -46,6 +46,7 @@ extern U8  OFFSET_MODULATION[16];                  // 调制度
 #define  VOLUMN_WIDEBAND             OFFSET_MODULATION[3]   //宽带音量          最大值 31   默认25
 #define  VOLUMN_NARROWBAND           OFFSET_MODULATION[4]   //窄带音量          最大值 31   默认25
 #define  XTAL_ADJUST                 OFFSET_MODULATION[6]  // 26M晶体校准
+extern U8 g_isBK4829;
 
 #define AF_RX_300HZ                  OFFSET_MODULATION[11]
 #define AF_RX_3KHZ                   OFFSET_MODULATION[12]

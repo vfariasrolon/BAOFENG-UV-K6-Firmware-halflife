@@ -969,8 +969,9 @@ const U8 *modelTypeStr[] =
 
 extern void DisplaySoftVersion(void)
 {
-    U8 disbuf[11];
+    U8 disbuf[16];
     U8 len;
+    U16 chipId;
 
     LCD_ClearFullBuf();    
     len = sprintf((String *)&disbuf,"%sNRF",strModelType);  
@@ -980,9 +981,10 @@ extern void DisplaySoftVersion(void)
     sprintf((String *)&disbuf,"VER:%s","V0.22" );
     LCD_DisplayText(24,28,disbuf,FONTSIZE_16x16,LCD_DIS_NORMAL);  
 
-    //显示国家码
-    sprintf((String *)&disbuf,"%s",modelTypeStr[g_sysRunPara.moduleType]);
-    LCD_DisplayText(44,51,disbuf,FONTSIZE_16x16,LCD_DIS_NORMAL);  
+    //显示国家码和芯片ID
+    chipId = Rfic_ReadWord(0);
+    sprintf((String *)&disbuf,"%s ID:%04X",modelTypeStr[g_sysRunPara.moduleType], chipId);
+    LCD_DisplayText(44,12,disbuf,FONTSIZE_16x16,LCD_DIS_NORMAL);  
 
     LCD_UpdateFullScreen();
     LcdBackLightSwitch(LED_ON);
