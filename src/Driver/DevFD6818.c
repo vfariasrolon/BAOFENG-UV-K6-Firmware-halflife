@@ -513,10 +513,6 @@ void Rfic_SetPA(U16 dat)
 
 void Rfic_MicIn_Disable(void)
 {
-    if (g_isBK4829)
-    {
-        return;
-    }
     U16 temp;
 
     temp = Rfic_ReadWord(0x30) & 0xFFFB;
@@ -525,10 +521,6 @@ void Rfic_MicIn_Disable(void)
 
 void Rfic_MicIn_Enable(void)
 {
-    if (g_isBK4829)
-    {
-        return;
-    }
     U16 temp;
 
     temp = Rfic_ReadWord(0x30) | 0x0004;
