@@ -232,8 +232,8 @@ if __name__ == '__main__':
     print("  NATIVE LINUX FLASHER FOR BAOFENG UV-K6x SERIES  ")
     print("==================================================")
     
-    # Default parameters
-    port = '/dev/ttyUSB0'
+    # Default parameters (Support environment variables)
+    port = os.environ.get('PORT', '/dev/ttyUSB0')
     
     # Find most recent binary in out/ directory
     bin_dir = 'out/'
