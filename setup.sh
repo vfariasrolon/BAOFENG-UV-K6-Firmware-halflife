@@ -24,7 +24,7 @@ fi
 echo -e "\n${BLUE}[1/4] Instalando dependencias del sistema...${NC}"
 echo -e "${YELLOW}Se requieren permisos de administrador (sudo) para instalar dependencias de desarrollo y Python:${NC}"
 sudo apt update
-sudo apt install -y python3 python3-pip python3-venv build-essential git python3-setuptools
+sudo apt install -y python3 python3-pip python3-venv build-essential git python3-setuptools python3-tk
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}[✔] Dependencias del sistema instaladas correctamente.${NC}"

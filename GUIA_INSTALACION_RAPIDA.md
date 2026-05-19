@@ -108,3 +108,23 @@ Para darte **lo mejor de ambos mundos**, programamos `k6_flash.py` para que func
 3. **Prioridad 3 (Mínima / Default):** El puerto estándar `/dev/ttyUSB0` si no se especifica nada más.
 
 ¡Esto te asegura compatibilidad absoluta sin obligarte a configurar nada si usas el puerto estándar!
+
+---
+
+## 🖥️ 5. Interfaz Gráfica de Usuario (Panel de Control de Escritorio)
+
+Hemos diseñado una interfaz gráfica premium y multiplataforma usando **CustomTkinter**. Esta app es 100% compatible con **Windows, macOS (Intel y Apple Silicon M1/M2/M3) y Ubuntu**.
+
+### ¿Cómo abrir la Interfaz Gráfica?
+Desde la carpeta raíz del proyecto, simplemente ejecuta:
+```bash
+./venv/bin/python3 k6_gui.py
+```
+
+### Características de la Aplicación Gráfica:
+1. **Detección Automática de Puertos:** Escanea dinámicamente tus puertos USB activos y los expone en un menú desplegable.
+2. **Sondeo de Conexión (A/B Test):** Envía ráfagas de saludo a velocidades de 115200 (bootloader) y 9600 (programación) usando los comandos de estilo A y B para confirmar si la radio está escuchando antes de cualquier operación.
+3. **Grabador Integrado (Flash):** Busca por defecto el firmware más nuevo generado por PlatformIO y te permite grabarlo en la radio con una hermosa barra de progreso real-time.
+4. **Respaldo de EEPROM (Backup):** Descarga toda la configuración, calibración y canales de tu radio (8KB) en modo de programación nativo utilizando el protocolo ofuscado original con suma de comprobación XMODEM y la guarda de forma segura en tu disco duro.
+5. **Logs Avanzados:** Muestra una consola de terminal interna integrada que te reporta detalladamente el flujo de bytes en tiempo real sin congelar la ventana.
+
