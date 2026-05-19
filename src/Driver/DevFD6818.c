@@ -1179,7 +1179,7 @@ void Rfic_ConfigRxMode(void)
 
 void Rfic_ConfigTxMode(void)
 {
-    U16 temp,gain;
+    U16 gain;
 
     RF_PowerSet(g_ChannelVfoInfo.BandFlag,PWR_OFF);
     Rfic_SwitchFM_AM(ModeFM);
@@ -1188,9 +1188,10 @@ void Rfic_ConfigTxMode(void)
     Rfic_BandInitial(g_CurrentVfo->tx->frequency);
     CTS_DCS_SEND_Initial();
     gain = DEPTH_MIC_MODULATION % 32;
-    temp = Rfic_ReadWord(0x7D) & 0XFFE0;
-    temp |= gain;
-    Rfic_WriteWord(0x7d, temp);
+    if (gain == 0) {
+        gain = 16; // Ganancia segura por defecto si es 0
+    }
+    Rfic_WriteWord(0x7d, 0xE940 | gain);
     Rfic_SetScramble(g_CurrentVfo->scarmble,g_CurrentVfo->tx->frequency);
     Rfic_RxTxOnOffSetup(RFIC_TXON);
     Rfic_SetPA(Rfic_GetTxPAPara());
@@ -1205,7 +1206,14 @@ void Rfic_EnterDTMFMode(U8  flagTx)
     
     if(flagTx == 1)
     {
-        Rfic_WriteWord(0x70, 0xE0E0);               // BIT8 - 14: Tone1 Gain/ BIT0 - 6  Tone2/FSK Gain  
+        if (g_isBK4829)
+        {
+            // En BK4829 el registro 0x70 es LNA/IF Gain, no escribimos 0xE0E0
+        }
+        else
+        {
+            Rfic_WriteWord(0x70, 0xE0E0);               // BIT8 - 14: Tone1 Gain/ BIT0 - 6  Tone2/FSK Gain  
+        }
     }
 
     Rfic_WriteWord(0x3F, 0X0800);
@@ -1217,7 +1225,14 @@ void Rfic_ExitDTMFMode(void)
 
     temp = Rfic_ReadWord(0x24) & 0xffdf;
     Rfic_WriteWord(0x24, temp);
-    Rfic_WriteWord(0x70, 0X0000);
+    if (g_isBK4829)
+    {
+        Rfic_WriteWord(0x70, 0x00E0); // Restaurar LNA/IF Gain para BK4829
+    }
+    else
+    {
+        Rfic_WriteWord(0x70, 0X0000);
+    }
     Rfic_SetScramble(g_CurrentVfo->scarmble,g_CurrentVfo->rx->frequency);
 }
 
