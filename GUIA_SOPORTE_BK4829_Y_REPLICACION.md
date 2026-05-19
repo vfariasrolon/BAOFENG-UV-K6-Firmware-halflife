@@ -114,3 +114,79 @@ Hemos creado un script integrador para compilar el firmware actual, localizar el
 ./quick_run.sh
 ```
 *Este script compilará de forma súper veloz usando PlatformIO y te guiará paso a paso para subir el nuevo binario a tu radio.*
+
+---
+
+## 🛠️ 4. Depuración en Tiempo Real (`k6_reg_editor.py`)
+
+Para no tener que compilar y flashear el firmware cada vez que queramos probar una regla de registros diferente, hemos inyectado un **protocolo de depuración serial no bloqueante** en la radio (`CheckProgromMode` en `src/CPS/ProgromFlash.c`) y creado una consola interactiva en Python.
+
+Esto te permite leer y escribir cualquier registro del transceptor de RF en caliente, mientras la radio está sintonizada en una frecuencia.
+
+### A. Requisitos de Conexión
+1.  Flashea la radio con la rama `bk4829-compat` (que ya tiene el parser inyectado).
+2.  Enciende la radio en **modo normal** (sin entrar a modo de flasheo).
+3.  Conecta el cable de programación al PC y a la radio lateralmente.
+4.  Aplica permisos al puerto serial:
+    ```bash
+    sudo chmod 666 /dev/ttyUSB0
+    ```
+
+### B. Iniciar el Depurador Interactivo
+Ejecuta la consola interactiva en la raíz del proyecto usando el entorno virtual:
+```bash
+./venv/bin/python3 k6_reg_editor.py
+```
+
+### C. Comandos Disponibles dentro de la Consola
+Una vez dentro de la terminal `halflife-dbg>`, puedes ingresar los siguientes comandos:
+
+*   **Escanear todos los registros**:
+    ```text
+    scan
+    ```
+    *Vuelca en pantalla el estado actual de los 128 registros del transceptor (del 0x00 al 0x7F).*
+
+*   **Leer un registro específico** (acepta decimal o hex):
+    ```text
+    r 0x30
+    ```
+    O también:
+    ```text
+    r 48
+    ```
+
+*   **Escribir un valor en un registro específico**:
+    ```text
+    w 0x30 0x0007
+    ```
+    *(Este comando fuerza a la radio a habilitar la transmisión del micrófono en tiempo real en el BK4829).*
+    
+*   **Salir de la herramienta**:
+    ```text
+    exit
+    ```
+
+---
+
+## 🧪 5. Pruebas Críticas para Mañana
+
+Mañana que realices las pruebas físicas, te sugiero seguir este orden exacto de validaciones diagnósticas:
+
+1.  **Verificación de Chip ID**:
+    Arranca el depurador interactive `./venv/bin/python3 k6_reg_editor.py` y escribe `r 0x00` (o `scan` completo).
+    *   **BK4819**: Debería devolver `0x4819`.
+    *   **BK4829**: Debería devolver `0x4829`.
+    *   *Si devuelve 0x0000 o 0xFFFF, hay un falso contacto de SPI en la soldadura del chip o ruido en la línea.*
+
+2.  **Prueba de Squelch Abierto (Monitor)**:
+    Presiona el botón de linterna para entrar en monitor (estática). 
+    Si hay sordera, usa el editor serial en caliente para escribir `w 0x48 0x0000` (abre el squelch por completo). Si se escucha estática fuerte (`shhhhh`), el receptor de RF y el amplificador de audio están 100% funcionales por hardware.
+
+3.  **Prueba de Micrófono en Transmisión**:
+    Presiona PTT y habla al radio. Si no se escucha modulación, abre la consola interactiva y escribe:
+    `w 0x30 0x0007` (Habilitador nativo del canal del micrófono del BK4829)
+    y luego:
+    `w 0x7D 0xE952` (Habilitador del preamplificador analógico del micrófono y sensibilidad)
+    Esto nos permitirá forzar manualmente y en tiempo real el ruteo del micrófono para escuchar en otro equipo receptor hasta dar con la regla exacta de tu equipo.
+
