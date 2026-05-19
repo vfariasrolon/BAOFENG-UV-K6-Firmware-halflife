@@ -48,7 +48,7 @@ static  U32  DCS_DATA;               // 二进制数据流
 static  U8   ctsDcsCodeType;
 
 static U8  RF_Baseband_Mode = ModeFM;        // Rfic工作模式
-U8 g_isBK4829 = 0;
+U8 g_isBK4829 = 1;
 
 void CTCSSCaleSkipFreq(U16 hopping_code, U16 pre_code, U16 ctc)
 {
@@ -712,8 +712,7 @@ void Rfic_WakeUp(void)
 {
     if (g_isBK4829)
     {
-        Rfic_WriteWord(0x30, 0x0002);
-        Rfic_WriteWord(0x01, 0x3FF0);
+        Rfic_Init();
         return;
     }
     Rfic_WriteWord(0x37,REG_37 | 0xF); //[1]xtal;[0]bg
@@ -725,35 +724,87 @@ void  Rfic_Init(void)
     U16 temp;
     U16 chipID = Rfic_ReadWord(0);
 
-    if (chipID == 0x4829) {
-        g_isBK4829 = 1;
-    } else {
-        g_isBK4829 = 0;
-    }
+    g_isBK4829 = 1; // Forzar para hardware con BK4829
 
     if (g_isBK4829) {
         // Soft Reset RF
         Rfic_WriteWord(0x00, 0x0000);
         Rfic_delay(10);
         
-        // Configuración del Reloj de Referencia (Cristal de 26 MHz)
+        // Habilitar LDO/Band Gap/Clock (Valores stock de BK4829 con BIT9 activo)
+        Rfic_WriteWord(0x37, 0x9F1F);
+        Rfic_WriteWord(0x36, 0x0022);
+        
+        // Configuración de AGC / LNA Gains para BK4829
+        Rfic_WriteWord(0x10, 0x0318);
+        Rfic_WriteWord(0x11, 0x033A);
+        Rfic_WriteWord(0x12, 0x03DB);
+        Rfic_WriteWord(0x13, 0x03DF);
+        Rfic_WriteWord(0x14, 0x0210);
+        Rfic_WriteWord(0x49, 0x2AB2);
+        Rfic_WriteWord(0x7B, 0x73DC);
+        
+        // Audio, PLL, VCO y Modulación (Bypass y Offset)
+        Rfic_WriteWord(0x40, 0x3516);
+        Rfic_WriteWord(0x1C, 0x07C0);
+        Rfic_WriteWord(0x1D, 0xE555);
+        Rfic_WriteWord(0x1E, 0x4C58);
+        Rfic_WriteWord(0x1F, 0xC65A);
+        Rfic_WriteWord(0x3E, 0x94C6);
+        
+        // Filtros y Preamplificación de Audio
+        Rfic_WriteWord(0x73, 0x4691);
+        Rfic_WriteWord(0x77, 0x88EF);
+        Rfic_WriteWord(0x28, 0x0B40);
+        Rfic_WriteWord(0x29, 0xAA00);
+        Rfic_WriteWord(0x2A, 0x6600);
+        Rfic_WriteWord(0x2C, 0x1822);
+        Rfic_WriteWord(0x2F, 0x9890);
+        Rfic_WriteWord(0x53, 0x2028);
+        Rfic_WriteWord(0x7E, 0x303E);
+        Rfic_WriteWord(0x46, 0x600A);
+        Rfic_WriteWord(0x4A, 0x5430);
+        Rfic_WriteWord(0x07, 0x61CE);
+        
+        // Inicializar coeficientes DTMF
+        Rfic_WriteWord(0x09, 0x006F);
+        Rfic_WriteWord(0x09, 0x106B);
+        Rfic_WriteWord(0x09, 0x2067);
+        Rfic_WriteWord(0x09, 0x3062);
+        Rfic_WriteWord(0x09, 0x4050);
+        Rfic_WriteWord(0x09, 0x5047);
+        Rfic_WriteWord(0x09, 0x603A);
+        Rfic_WriteWord(0x09, 0x702C);
+        Rfic_WriteWord(0x09, 0x8041);
+        Rfic_WriteWord(0x09, 0x9037);
+        Rfic_WriteWord(0x09, 0xA025);
+        Rfic_WriteWord(0x09, 0xB017);
+        Rfic_WriteWord(0x09, 0xC0E4);
+        Rfic_WriteWord(0x09, 0xD0CB);
+        Rfic_WriteWord(0x09, 0xE0B5);
+        Rfic_WriteWord(0x09, 0xF09F);
+        
+        // Parámetros de FSK (Baudrate y CRC)
+#if FSK2400
+        Rfic_WriteWord(0x72, FSK_BAUD << 1);
+#else
+        Rfic_WriteWord(0x72, FSK_BAUD);
+#endif
+        Rfic_WriteWord(0x5C, 0x5665);
+        Rfic_WriteWord(0x5D, (FSK_LEN * 2 - 1) << 8);
+        
+        // Reloj de Referencia / Cristal
         Rfic_WriteWord(0x01, 0x3FF0);
         
-        // Registro Maestro del Squelch (Sensible por defecto)
+        // Micrófono y ganancia
+        Rfic_WriteWord(0x19, 0x1041);
+        Rfic_WriteWord(0x7D, 0xE952);
+        
+        // Registro Maestro del Squelch / volumen por defecto
         Rfic_WriteWord(0x48, 0x2340);
         
-        // Configuración de LNA e IF Gain
-        Rfic_WriteWord(0x70, 0x00E0);
-        
-        // Filtros pasa-banda
-        Rfic_WriteWord(0x74, 0x3B2D);
-        
-        // Inicializar micrófono y AGC (Igual que BK4819 para mantener ruta de audio)
-        Rfic_WriteWord(0x19, 0x1041); // Habilitar MIC AGC
-        Rfic_WriteWord(0x7D, 0xE952); // Sensibilidad y habilitadores de ruta MIC (Pre-emphasis, HPF)
-        
         // Modo RX por defecto
-        Rfic_WriteWord(0x30, 0x0002);
+        Rfic_WriteWord(0x30, 0xBFF1);
         return;
     }
 
@@ -912,12 +963,16 @@ void Rfic_RxTxOnOffSetup(U8  ON_FLAG)
         switch(ON_FLAG)
         {
             case RFIC_RXON:
+                Rfic_WriteWord(0x30, 0xBFF1);
+                break;
             case RFIC_TONE:
-                Rfic_WriteWord(0x30, 0x0002);
+                Rfic_WriteWord(0x30, 0x0302);
                 break;
             case RFIC_TXON:
+                Rfic_WriteWord(0x30, 0xC1FE);
+                break;
             case RFIC_TXTONE:
-                Rfic_WriteWord(0x30, 0x0007);
+                Rfic_WriteWord(0x30, 0xC3FA);
                 break;
             default:
             case RFIC_IDLE:
@@ -1020,7 +1075,7 @@ void Rfic_SQLSetup()
     {
         if (g_sysRunPara.moniFlag || g_radioInform.sqlLevel == 0)
         {
-            Rfic_WriteWord(0x48, 0x0000);
+            Rfic_WriteWord(0x78, 0x0000);
         }
         else
         {
@@ -1029,7 +1084,7 @@ void Rfic_SQLSetup()
             if (level > 9) {
                 level = 9;
             }
-            Rfic_WriteWord(0x48, BK4829_SQL_TAB[level]);
+            Rfic_WriteWord(0x78, BK4829_SQL_TAB[level]);
         }
         return;
     }
@@ -1116,7 +1171,7 @@ void Rfic_SetAfout(U8  state)
 {
     U16 reg47h,volData = 25;
     
-    reg47h = 0x6040;
+    reg47h = g_isBK4829 ? 0x6042 : 0x6040;
     reg47h |= afState[state&0x0F];
 
     if(RF_Baseband_Mode == ModeAM && state == 1)   
@@ -1125,10 +1180,6 @@ void Rfic_SetAfout(U8  state)
     }
     Rfic_WriteWord(0x47,reg47h );
 
-    if (g_isBK4829)
-    {
-        return;
-    }
 
     if(state == 3 || state == 0xF1)
     {//Beep音 独立调整音量大小
@@ -1166,6 +1217,20 @@ void Rfic_ConfigRxMode(void)
     {
         Rfic_SwitchFM_AM(OFF);
     }
+
+    if (g_isBK4829)
+    {
+        RF_PowerSet(g_ChannelVfoInfo.BandFlag, PWR_RXON);
+        Rfic_Init(); // Inicializar calibraciones con energía activa
+        Rfic_RxTxOnOffSetup(RFIC_IDLE);
+        Rfic_BandInitial(g_CurrentVfo->rx->frequency);
+        Rfic_SQLSetup();
+        CTS_DCS_RECE_Initial();
+        Rfic_SetScramble(g_CurrentVfo->scarmble, g_CurrentVfo->rx->frequency);
+        Rfic_RxTxOnOffSetup(RFIC_RXON);
+        return;
+    }
+
     RF_PowerSet(g_ChannelVfoInfo.BandFlag,PWR_OFF);
     Rfic_WriteWord(0x37, REG_37 | 0x0F | BIT9);
     Rfic_RxTxOnOffSetup(RFIC_IDLE);
@@ -1180,6 +1245,28 @@ void Rfic_ConfigRxMode(void)
 void Rfic_ConfigTxMode(void)
 {
     U16 gain;
+
+    if (g_isBK4829)
+    {
+        RF_PowerSet(g_ChannelVfoInfo.BandFlag, PWR_TXON);
+        Rfic_Init(); // Inicializar con energía activa
+        Rfic_SwitchFM_AM(ModeFM);
+        Rfic_RxTxOnOffSetup(RFIC_IDLE);
+        Rfic_BandInitial(g_CurrentVfo->tx->frequency);
+        CTS_DCS_SEND_Initial();
+        
+        // Read MIC gain dynamically from menu (0-31), defaulting to 26 if uninitialized
+        gain = g_radioInform.remain0[0];
+        if (gain > 31) {
+            gain = 26;
+        }
+        Rfic_WriteWord(0x7d, 0xE940 | gain);
+        Rfic_SetScramble(g_CurrentVfo->scarmble, g_CurrentVfo->tx->frequency);
+        Rfic_RxTxOnOffSetup(RFIC_TXON);
+        Rfic_SetPA(Rfic_GetTxPAPara());
+        LedTxSwitch(LED_ON);
+        return;
+    }
 
     RF_PowerSet(g_ChannelVfoInfo.BandFlag,PWR_OFF);
     Rfic_SwitchFM_AM(ModeFM);
@@ -1206,14 +1293,7 @@ void Rfic_EnterDTMFMode(U8  flagTx)
     
     if(flagTx == 1)
     {
-        if (g_isBK4829)
-        {
-            // En BK4829 el registro 0x70 es LNA/IF Gain, no escribimos 0xE0E0
-        }
-        else
-        {
-            Rfic_WriteWord(0x70, 0xE0E0);               // BIT8 - 14: Tone1 Gain/ BIT0 - 6  Tone2/FSK Gain  
-        }
+        Rfic_WriteWord(0x70, 0xE0E0);               // BIT8 - 14: Tone1 Gain/ BIT0 - 6  Tone2/FSK Gain  
     }
 
     Rfic_WriteWord(0x3F, 0X0800);

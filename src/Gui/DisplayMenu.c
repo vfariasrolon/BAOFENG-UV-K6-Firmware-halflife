@@ -65,6 +65,7 @@ const STR_MENU_ITEM MenuList[] =
     {vo_initialization,"Reset","RESET"},
     {vo_Null,    "STOP WATCH","CRONOMETRO"},
     {vo_Null,    "VERSION","VERSION"},
+    {vo_Null,    "MIC Gain","GANANCIA MIC"},
 };
 
 const STR_MENU_ITEM MenuFmList[] = 
@@ -441,7 +442,7 @@ extern void Menu_GetSubItemString(U8 menuIndex)
                 {
                     if(g_radioInform.language == LANG_CN)
                     {
-                        sprintf(disBuf,"%s","¹Ø±Õ"); 
+                        sprintf(disBuf,"%s","å…³é—­"); 
                     }
                     else
                     {
@@ -451,11 +452,11 @@ extern void Menu_GetSubItemString(U8 menuIndex)
                 else
                 {
                     if(g_menuInfo.selectedItem > 105)
-                    {//·´Âë
+                    {//åç 
                         sprintf(disBuf,"D%03oI",DCS_TAB[g_menuInfo.selectedItem-106]); 
                     }
                     else
-                    {//ÕıÂë
+                    {//æ­£ç 
                         sprintf(disBuf,"D%03oN",DCS_TAB[g_menuInfo.selectedItem-1]);
                     }
                 }
@@ -572,7 +573,7 @@ extern void Menu_GetSubItemString(U8 menuIndex)
                 {
                     if(g_radioInform.language == LANG_CN)
                     {
-                        sprintf(disBuf,"%s","¹Ø±Õ"); 
+                        sprintf(disBuf,"%s","å…³é—­"); 
                     }
                     else
                     {
@@ -669,7 +670,7 @@ extern void Menu_GetSubItemString(U8 menuIndex)
                 {
                     if(g_radioInform.language == LANG_CN)
                     {
-                        sprintf(disBuf,"%s","¹Ø±Õ"); 
+                        sprintf(disBuf,"%s","å…³é—­"); 
                     }
                     else
                     {
@@ -714,7 +715,7 @@ extern void Menu_GetSubItemString(U8 menuIndex)
                 {
                     if(g_radioInform.language == LANG_CN)
                     {
-                        sprintf(disBuf,"%s","¹Ø±Õ"); 
+                        sprintf(disBuf,"%s","å…³é—­"); 
                     }
                     else
                     {
@@ -755,7 +756,7 @@ extern void Menu_GetSubItemString(U8 menuIndex)
                 {
                     if(g_radioInform.language == LANG_CN)
                     {
-                        sprintf(disBuf,"%s","¹Ø±Õ"); 
+                        sprintf(disBuf,"%s","å…³é—­"); 
                     }
                     else
                     {
@@ -809,7 +810,7 @@ extern void Menu_GetSubItemString(U8 menuIndex)
                 {
                     if(g_radioInform.language == LANG_CN)
                     {
-                        sprintf(disBuf,"Èí¼ş°æ±¾:%s","V0.01"); 
+                        sprintf(disBuf,"è½¯ä»¶ç‰ˆæœ¬:%s","V0.01"); 
                     }
                     else
                     {
@@ -820,13 +821,16 @@ extern void Menu_GetSubItemString(U8 menuIndex)
                 {
                     if(g_radioInform.language == LANG_CN)
                     {
-                        sprintf(disBuf,"Ó²¼ş°æ±¾:%s","V0.01"); 
+                        sprintf(disBuf,"ç¡¬ä»¶ç‰ˆæœ¬:%s","V0.01"); 
                     }
                     else
                     {
                         sprintf(disBuf,"Hardware:%s","V01  "); 
                     }
                 }
+                break;
+            case S_MICGAIN:
+                sprintf(disBuf, "%d", g_menuInfo.selectedItem);
                 break;
             default:
                 break;
@@ -840,7 +844,7 @@ extern void Menu_DisplayFreqError(void)
     
     if(g_radioInform.language == LANG_CN)
     {
-        TranStrToMiddle(disBuf, (String *)"ÆµÂÊ³¬³ö·¶Î§!",16);
+        TranStrToMiddle(disBuf, (String *)"é¢‘ç‡è¶…å‡ºèŒƒå›´!",16);
     }
     else
     {
@@ -849,7 +853,7 @@ extern void Menu_DisplayFreqError(void)
     LCD_DisplayText(47, 0, (U8 *)disBuf, FONTSIZE_16x16, 0);
     LCD_UpdateWorkAre();
 
-    //ÑÓÊ±1SÏÔÊ¾±£´æ³É¹¦½çÃæ
+    //å»¶æ—¶1Sæ˜¾ç¤ºä¿å­˜æˆåŠŸç•Œé¢
     DelaySysMs(500);
 }
 
@@ -967,7 +971,7 @@ static U8 CheckCtcssInList(U16 ctcssDat)
        return 0;
    }
    
-   //ÅĞ¶ÏÑÇÒôÆµÊÇ·ñÔÚË÷ÒıÄÚ
+   //åˆ¤æ–­äºšéŸ³é¢‘æ˜¯å¦åœ¨ç´¢å¼•å†…
    for(i=0;i<51;i++)
    {
        if(CTCS_TAB[i] == ctcssDat)
@@ -985,7 +989,7 @@ void GetCtcssDisBuf(U16 Index)
     {
         if(g_radioInform.language == LANG_CN)
         {
-            sprintf(disBuf,"¹Ø±Õ");
+            sprintf(disBuf,"å…³é—­");
         }
         else
         {
@@ -1008,7 +1012,7 @@ static void ShowCtcssList(void)
     U8 selecteId;
 
     if(g_menuInfo.isSubMenu == 0)
-    {//ÔÚµÚÒ»¼¶Ñ¡Ôñ²Ëµ¥Ñ¡Ïî
+    {//åœ¨ç¬¬ä¸€çº§é€‰æ‹©èœå•é€‰é¡¹
 
        if(g_menuInfo.inputVal == 0)
        {
@@ -1111,7 +1115,7 @@ extern void DisplayInputType(void)
         }
         sprintf(buf,"%s",str);
         SC5260_ClearArea(10,107,20,9,1);
-        //ÏÔÊ¾ÊäÈëÀàĞÍ
+        //æ˜¾ç¤ºè¾“å…¥ç±»å‹
         LCD_DisplayNumber(11,108,(U8  *)buf,1);
         LCD_UpdateWorkAre();
     }
@@ -1127,7 +1131,7 @@ void DisplaySelectHz(void)
     for(i=0;i<2;i++)
     {
         if(lcdDispBuf[i][0] == 0x08)
-        {//µÚÒ»×ªÒå×Ö·ûÊ±²»ÏÔÊ¾£¬»áµ¼ÖÂ×Ü³¤¶È+1
+        {//ç¬¬ä¸€è½¬ä¹‰å­—ç¬¦æ—¶ä¸æ˜¾ç¤ºï¼Œä¼šå¯¼è‡´æ€»é•¿åº¦+1
             sprintf(displayBuf,"%-*.*s",17,17,lcdDispBuf[i]);
             displayBuf[16+1] = 0;
         }
@@ -1147,13 +1151,13 @@ extern void MenuShowInputChar(void)
 
     DisplayInputType();
 
-    //ÏÔÊ¾ÊäÈëµÄ×Ö·û´®
+    //æ˜¾ç¤ºè¾“å…¥çš„å­—ç¬¦ä¸²
     sprintf((String *)disBuf,"%*.*s",16,16,g_inputbuf.buf);
-    //ÏÔÊ¾ÄÚÈİÔÚÓÒÏÂ½Ç
+    //æ˜¾ç¤ºå†…å®¹åœ¨å³ä¸‹è§’
     LCD_DisplayText(47,0,(U8  *)disBuf,FONTSIZE_16x16,0);
     uartSendChar(disBuf[0]);
 
-    /*»æÖÆºº×ÖÊäÈë¿ò*/
+    /*ç»˜åˆ¶æ±‰å­—è¾“å…¥æ¡†*/
     if(pyBuf.pos != 0)
     {
         DisplaySelectHz();
@@ -1171,7 +1175,7 @@ extern void Menu_Display(void)
 
    if(!(g_menuInfo.inputMode == MENU_ONE_CHAR && g_menuInfo.isSubMenu ))
    {
-        //»æÖÆÖĞ¼ä¼ä¸ôÌõ
+        //ç»˜åˆ¶ä¸­é—´é—´éš”æ¡
         SC5260_ClearArea(41, 5, 121, 2, 1);
         posx = 5;
         for(i=0;i<13;i++)
@@ -1184,7 +1188,7 @@ extern void Menu_Display(void)
     {
         case MENU_ONE_CHAR:
             if(g_menuInfo.isSubMenu)
-            {//ÏÔÊ¾ĞÅµÀÃû³Æ±à¼­½çÃæ
+            {//æ˜¾ç¤ºä¿¡é“åç§°ç¼–è¾‘ç•Œé¢
                 LCD_ClearWorkArea();
                 MenuShowInputChar();
                 return;
@@ -1194,7 +1198,7 @@ extern void Menu_Display(void)
                 Menu_GetSubItemString(g_menuInfo.menuIndex);
             }
            break;
-        case MENU_ONE_FREQ:              //ÆµÂÊÊäÈë
+        case MENU_ONE_FREQ:              //é¢‘ç‡è¾“å…¥
             if(g_menuInfo.isSubMenu == 0)
             {
                 g_menuInfo.inputVal = g_menuInfo.selectedItem;
@@ -1202,7 +1206,7 @@ extern void Menu_Display(void)
             DisplayInputOffect(g_menuInfo.inputVal);
             
             break;
-        case MENU_CH_FREQ:              //ÆµÂÊÊäÈë
+        case MENU_CH_FREQ:              //é¢‘ç‡è¾“å…¥
             if(g_menuInfo.isSubMenu == 0)
             {
                 g_menuInfo.inputVal = g_menuInfo.selectedItem;
@@ -1210,7 +1214,7 @@ extern void Menu_Display(void)
             DisplayInputChFreq(g_menuInfo.inputVal);
             
             break;    
-        case MENU_ONE_VFOSCAN:          //ÆµÂÊÉ¨Ãè·¶Î§
+        case MENU_ONE_VFOSCAN:          //é¢‘ç‡æ‰«æèŒƒå›´
             if(g_menuInfo.isSubMenu == 0)
             {
                 g_menuInfo.inputVal = g_menuInfo.selectedItem;
@@ -1218,7 +1222,7 @@ extern void Menu_Display(void)
             DisplayInputVfoScan(g_menuInfo.inputVal);
             break;
             
-        case MENU_ONE_CTCSS:             //Ä£ÄâÑÇÒôÆµÑ¡ÔñºÍÊäÈë
+        case MENU_ONE_CTCSS:             //æ¨¡æ‹ŸäºšéŸ³é¢‘é€‰æ‹©å’Œè¾“å…¥
             ShowCtcssList();
             break;
         case MENU_ONE_DIGIT:
