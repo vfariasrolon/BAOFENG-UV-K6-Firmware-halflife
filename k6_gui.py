@@ -327,6 +327,12 @@ class K6ControlPanelApp(ctk.CTk):
                 ser.close()
             except Exception as e:
                 print(f"    [❌] Error en el puerto a {baud}: {e}")
+                if "Permission denied" in str(e) or "Errno 13" in str(e):
+                    print(f"\n⚠️  ERROR DE PERMISOS DETECTADO EN {port}!")
+                    print(f"👉 Ubuntu/Linux está bloqueando el acceso al puerto USB.")
+                    print(f"👉 Para solucionarlo de inmediato, abre otra terminal y ejecuta:")
+                    print(f"   sudo chmod 666 {port}")
+                    print(f"👉 Para solucionarlo permanente, ejecuta 'newgrp dialout' o cierra sesión de Ubuntu.\n")
             return None, None
 
         # Probar primero 115200 (Modo Bootloader)
@@ -429,6 +435,12 @@ class K6ControlPanelApp(ctk.CTk):
             ser.flush()
         except Exception as e:
             print(f"❌ Error al abrir el puerto serie: {e}")
+            if "Permission denied" in str(e) or "Errno 13" in str(e):
+                print(f"\n⚠️  ERROR DE PERMISOS DETECTADO EN {port}!")
+                print(f"👉 Ubuntu/Linux está bloqueando el acceso al puerto USB.")
+                print(f"👉 Para solucionarlo de inmediato, abre otra terminal y ejecuta:")
+                print(f"   sudo chmod 666 {port}")
+                print(f"👉 Para solucionarlo permanente, ejecuta 'newgrp dialout' o cierra sesión de Ubuntu.\n")
             self.enable_interface()
             return
 
