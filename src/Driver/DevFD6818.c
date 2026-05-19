@@ -748,6 +748,10 @@ void  Rfic_Init(void)
         // Filtros pasa-banda
         Rfic_WriteWord(0x74, 0x3B2D);
         
+        // Inicializar micrófono y AGC (Igual que BK4819 para mantener ruta de audio)
+        Rfic_WriteWord(0x19, 0x1041); // Habilitar MIC AGC
+        Rfic_WriteWord(0x7D, 0xE952); // Sensibilidad y habilitadores de ruta MIC (Pre-emphasis, HPF)
+        
         // Modo RX por defecto
         Rfic_WriteWord(0x30, 0x0002);
         return;
