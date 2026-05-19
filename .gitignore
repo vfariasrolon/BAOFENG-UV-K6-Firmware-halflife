@@ -10,6 +10,9 @@ bf_uvk6
 .vscode
 .pio
 venv/
+.venv/
+historicos/
+restore_menu.py
 __pycache__/
 *.pyc
 *.pyo
