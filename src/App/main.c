@@ -21,6 +21,7 @@ int main(void)
 {   
     Board_Init();    
     RadioConfig_Init();
+    g_radioInform.language = LANG_EN; // Force English language globally to remove all Chinese voice and menus
     UI_DisplayPowerOn();
     Rfic_Init();
     ChannelCheckActiveAll();

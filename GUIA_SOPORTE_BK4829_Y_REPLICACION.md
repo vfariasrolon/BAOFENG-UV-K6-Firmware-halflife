@@ -109,11 +109,11 @@ newgrp dialout
 ```
 
 ### Paso 5: Compilar y Flashear con un Solo Script (`quick_run.sh`)
-Hemos creado un script integrador para compilar el firmware actual, localizar el último binario compilado y abrir automáticamente la interfaz interactiva de flasheo:
+Hemos creado un script integrador que compila de manera automatizada usando PlatformIO y lanza de forma automática el flasheador de rescate interactivo:
 ```bash
-./quick_run.sh
+sudo ./quick_run.sh
 ```
-*Este script compilará de forma súper veloz usando PlatformIO y te guiará paso a paso para subir el nuevo binario a tu radio.*
+*Este script compilará el firmware actual y abrirá la herramienta interactiva de rescate `k6_rescue.py` con privilegios elevados (`sudo`), guiándote paso a paso para seleccionar y grabar el binario sin conflictos de puerto.*
 
 ---
 

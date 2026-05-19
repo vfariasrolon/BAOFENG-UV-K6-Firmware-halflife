@@ -73,13 +73,13 @@ Una vez completado el script de instalación y aplicados los permisos, puedes co
 *Este comando descarga las herramientas de compilación del microcontrolador DP32G030, compila el código y deposita el archivo `.bin` en la carpeta `out/`.*
 
 ### Flashear la Radio (Despliegue):
-1. Enciende tu radio manteniendo presionado el botón **PTT** (la linterna superior se encenderá fija en modo bootloader).
-2. Conecta el cable de programación.
-3. Ejecuta el cargador rápido:
+1. Enciende tu radio manteniendo presionado el botón **PTT** (la linterna superior se encenderá fija o el LED parpadeará en modo bootloader / UPDATE).
+2. Conecta el cable de programación directo al PC (evita Hubs USB para evitar latencia de comunicación).
+3. Ejecuta la herramienta de rescate interactiva con privilegios `sudo` para asegurar el control exclusivo del puerto serial:
    ```bash
-   ./venv/bin/python3 k6_flash.py
+   sudo ./venv/bin/python3 k6_rescue.py
    ```
-   *El script buscará automáticamente el binario más reciente en la carpeta `out/` y lo transmitirá a tu radio.*
+   *El script detectará automáticamente tu puerto `/dev/ttyUSB0` (o el correspondiente), escaneará la carpeta `out/` y te presentará un menú interactivo para flashear el firmware custom de manera 100% segura.*
 
 ---
 

@@ -44,7 +44,7 @@
 static  U16  UINT_BUFF;
 
 static  U16  PREDCS_CODE;            // DCS [000-777]
-static  U32  DCS_DATA;               // 二进制数据流 
+static  U32  DCS_DATA;               // 二进制数�?�? 
 static  U8   ctsDcsCodeType;
 
 static U8  RF_Baseband_Mode = ModeFM;        // Rfic工作模式
@@ -59,7 +59,7 @@ void CTCSSCaleSkipFreq(U16 hopping_code, U16 pre_code, U16 ctc)
      
     pre_code = (hopping_code & 0x0F) + pre_code;
      
-    pre_code = (pre_code&0x07)|((pre_code>>1)&0x38)|((pre_code>>2)&0x01c0);    /* 八进制转十六进制，并添加b11~b9=100 */
+    pre_code = (pre_code&0x07)|((pre_code>>1)&0x38)|((pre_code>>2)&0x01c0);    /* �?进制�?十六进制，并添加b11~b9=100 */
     pre_code |= 0x0800;
 
     DCS_DATA = 0;
@@ -67,7 +67,7 @@ void CTCSSCaleSkipFreq(U16 hopping_code, U16 pre_code, U16 ctc)
     DCS_DATA |= DCS_SOURCE;
     DCS_BIT = 1;
     DCS_RESULT = 0;
-/* 函数名称: 计算DCS编解码数据流函数                                    */
+/* 函数名称: 计算DCS编解码数�?流函�?                                    */
     for(i = 1; i < 13;i++)
     {
         m = DCS_RESULT & 0x0002;
@@ -102,7 +102,7 @@ void DCSCale(U8  type, U16 hopping_code, U16 pre_code)
     DCS_DATA |= DCS_SOURCE;
     DCS_BIT = 1;
     DCS_RESULT = 0;
-/* 函数名称: 计算DCS编解码数据流函数                                    */
+/* 函数名称: 计算DCS编解码数�?流函�?                                    */
     for(i = 1; i < 13;i++)
     {
         m = DCS_RESULT & 0x0002;
@@ -168,9 +168,9 @@ U32 FhssKdhMode_Convert(U32 dat)
 	return dat;
 }
 /************************************************************************/
-/* 函数名称: 计算DCS二进制循环码数据流函数                              */
+/* 函数名称: 计算DCS二进制循�?码数�?流函�?                              */
 /* 参数变量:                                                            */
-/*   返回值: 无                                                         */
+/*   返回�?: �?                                                         */
 /* 描述说明:                                                            */
 /************************************************************************/
 U32  GOLAY_ENCODE(U16 dcsCode)
@@ -185,7 +185,7 @@ U32  GOLAY_ENCODE(U16 dcsCode)
     DCS_DATA |= DCS_SOURCE;
     DCS_BIT = 1;
     DCS_RESULT = 0;
-/* 函数名称: 计算DCS编解码数据流函数                                    */
+/* 函数名称: 计算DCS编解码数�?流函�?                                    */
     for(i = 1; i < 13;i++)
     {
         m = DCS_RESULT & 0x0002;
@@ -209,7 +209,7 @@ U32  GOLAY_ENCODE(U16 dcsCode)
     return DCS_DATA;
 }
 
-/// 原数字亚音为8进制，该函数将8进制改为16进制
+/// 原数字亚音为8进制，�?�函数将8进制改为16进制
 U16 SwitchDCS2Hex(U16 dat)
 {
     U16 m,n;
@@ -258,8 +258,8 @@ void  CTCSS_WithRfic(U32 CTS_Data, U8  sw_fhss)
         CTS_BUFF = CTS_Data * 206489L/100000;
         Rfic_WriteWord(0x07,CTS_BUFF);
     
-        Rfic_WriteWord(0x07,0X01CD| (0x1<<13));//55.1Hz 尾音消除序号为第二个
-        Rfic_WriteWord(0x52,0x0292); // 设置模拟亚音门限值  CTS_TH_IN[11:6]  CTS_TH_OUT[5:0]  
+        Rfic_WriteWord(0x07,0X01CD| (0x1<<13));//55.1Hz 尾音消除序号为�??二个
+        Rfic_WriteWord(0x52,0x0292); // 设置模拟亚音门限�?  CTS_TH_IN[11:6]  CTS_TH_OUT[5:0]  
     }
 }
 
@@ -370,7 +370,7 @@ void  CTS_DCS_RECE_Initial(void)
     if(g_CurrentVfo->rx->dcsCtsType > SUBAUDIO_CTS)
     {
         if((g_CurrentVfo->rx->dcsCtsNum & 0xA0000000) == 0XA0000000)
-        {//学习跳频
+        {//学习跳�??
             DCS_DATA = g_CurrentVfo->rx->dcsCtsNum & 0x007FFFFF;
             DTCSS_WithRfic(g_CurrentVfo->rx->dcsCtsNum, 1);
         }
@@ -404,7 +404,7 @@ void  CTS_DCS_SEND_Initial(void)
         if(g_CurrentVfo->tx->dcsCtsType > SUBAUDIO_CTS)
         {
             if((g_CurrentVfo->tx->dcsCtsNum & 0xA0000000) == 0XA0000000)
-            {//学习跳频
+            {//学习跳�??
                 DCS_DATA = g_CurrentVfo->tx->dcsCtsNum & 0x007FFFFF;
                 DTCSS_WithRfic(g_CurrentVfo->tx->dcsCtsNum, 1);
             }
@@ -434,7 +434,7 @@ void  CTS_DCS_SEND_Initial(void)
 /* 函数名称: Rfic_GpioSetBit                                         */
 /* 参数变量: gpiox:   0 - 7                                             */
 /*           val  :   0,1                                               */
-/*   返回值: none                                                       */
+/*   返回�?: none                                                       */
 /* 描述说明: 设置GPIO输出电平                                           */
 /***********************************************************************/
 void Rfic_GpioSetBit( U16 gpiox, U8  val )
@@ -572,8 +572,8 @@ void Rfic_SetScramble(U8 group,U32 freq)
 #define SUB1  5
 #define SUB2  6
 #define SUB3  7
-void RF_SetAfResponse(U8 tx, U8 f3k, U8 db) //参数：发射or接收，3k频响or 300hz频响，调整-1~+4dB
-{ //v3版本芯片必须修改！！！
+void RF_SetAfResponse(U8 tx, U8 f3k, U8 db) //参数：发射or接收�?3k频响or 300hz频响，调�?-1~+4dB
+{ //v3版本�?片必须修改！！！
 
     U16 d1 = 0;
 	U16 d2 = 0;
@@ -824,7 +824,7 @@ void  Rfic_Init(void)
     Rfic_WriteWord(0x49,0x2A38);
     Rfic_WriteWord(0x7B,0x8420);
 
-    Rfic_WriteWord(0x19,0x1041); //开启MIC AGC
+    Rfic_WriteWord(0x19,0x1041); //�?启MIC AGC
 
     Rfic_WriteWord(0x2A,0x4F18);// 不知道干嘛的
 
@@ -863,12 +863,12 @@ void  Rfic_Init(void)
     Rfic_WriteWord(0x5C,0x5665); 
     Rfic_WriteWord(0x5D,(FSK_LEN*2-1)<<8); //[15:8]fsk tx length(byte) 
 
-    //设置调制度-影响所有信号
+    //设置调制�?-影响�?有信�?
     temp = Rfic_ReadWord(0x40) & 0xF000;
     Rfic_WriteWord(0x40, temp | REG_40);
     //Rfic_WriteWord(0x40, temp | 0X04D2);
 
-    // 注: 调整发射频响可能会导致调制限制异常,到达调制限制的临界点调制度会突变
+    // �?: 调整发射频响�?能会导致调制限制异常,到达调制限制的临界点调制度会突变
     // 发射频响
     RF_SetAfResponse(0,0,AF_RX_300HZ&0x07);
     RF_SetAfResponse(0,1,AF_RX_3KHZ&0x07);
@@ -888,15 +888,15 @@ void  Rfic_Init(void)
     // bit[9:4]=音量数字增益    bit[3:0]=音量模拟增益
     Rfic_WriteWord(0x48,0xB000 | VOL_GAIN<<4 | DAC_GAIN);
 
-    //设置时钟频率为26M 默认不需要设置
+    //设置时钟频率�?26M 默�?�不�?要�?�置
 
     //Others Setting
     Rfic_WriteWord(0x1F,0x5454);  //set rfpll_regvco_vbit=0001 to save
-    Rfic_WriteWord(0x3E,0xA037);  //固定值
+    Rfic_WriteWord(0x3E,0xA037);  //固定�?
 
-    Rfic_WriteWord(0x77,0x88ef);  //改善串频
+    Rfic_WriteWord(0x77,0x88ef);  //改善串�??
 
-    Rfic_WriteWord(0x4F, 0X3732); // 带外噪声
+    Rfic_WriteWord(0x4F, 0X3732); // 带�?�噪�?
 
     Rfic_WriteWord(0x26,0x13A0);  //改善失真
 
@@ -910,7 +910,7 @@ void  Rfic_Init(void)
 /************************************************************************/
 /* 函数名称: RDA1846S_BandInitiall                                      */
 /* 参数变量: INI_Band  0:窄带   1:宽带                                  */
-/*   返回值: 无                                                         */
+/*   返回�?: �?                                                         */
 /* 描述说明: RDA1846S宽窄带初始化                                       */
 /************************************************************************/
 const U8 xtal26MAdjust[] = {40, 35, 30, 25, 20, 15, 10, 5, 0, 5, 10, 15, 20, 25, 30, 35, 40 };
@@ -925,7 +925,7 @@ void  Rfic_BandInitial(U32 freq)
         XTAL_ADJUST = 8; // 零点
     }
     adjustDat = calcFreq * xtal26MAdjust[XTAL_ADJUST] / 10000000L;
-    if(XTAL_ADJUST > 8)// 8为0点的索引
+    if(XTAL_ADJUST > 8)// 8�?0点的索引
     {
         calcFreq += adjustDat;
     }
@@ -948,13 +948,13 @@ void  Rfic_BandInitial(U32 freq)
 }
 
 /*********************************************************************
-* 函 数 名: RfRxTxOnOffSetup
-* 功能描述: Rfic接收/发射开关设置 
+* �? �? �?: RfRxTxOnOffSetup
+* 功能描述: Rfic接收/发射�?关�?�置 
 * 全局变量: 
-* 输入参数：ON_FLAG:0:关闭  1:RX on  2:输出侧音  3:TX on  4:发射并输出侧音
+* 输入参数：ON_FLAG:0:关闭  1:RX on  2:输出侧音  3:TX on  4:发射并输出侧�?
 * 输出参数:
-* 返　　回:
-* 说    明：2019.03.10 hht  v1.0
+* 返�??�?�?:
+* �?    明：2019.03.10 hht  v1.0
 ***********************************************************************/
 void Rfic_RxTxOnOffSetup(U8  ON_FLAG)
 {
@@ -1001,11 +1001,11 @@ void Rfic_RxTxOnOffSetup(U8  ON_FLAG)
             Rfic_WriteWord(0x30, 0xC1FE);
             break;
 
-        case RFIC_TONE: // 只播放侧音
+        case RFIC_TONE: // �?�?放侧�?
             Rfic_WriteWord(0x30, 0X0302);
             break;
 
-        case RFIC_TXTONE:// 发送侧音
+        case RFIC_TXTONE:// 发�?�侧�?
             Rfic_WriteWord(0X30, 0XC3FA);
             break;
         default:
@@ -1033,11 +1033,11 @@ U8  Rfic_GetRxTxState(void)
     }
 
     if(temp & 0X0002)
-    {// 发射状态
+    {// 发射状�??
         return 1;
     }
     else
-    {// 接收状态
+    {// 接收状�??
         return 0;
     }
 }
@@ -1063,9 +1063,9 @@ U8  Rfic_GetNoiseVal(void)
 
 
 /***********************************************************************
-* 函  数  名：Rfic_SQLSetup
-* 功      能：静噪等级设置
-* 寄存器说明: REG_78H
+* �?  �?  名：Rfic_SQLSetup
+* �?      能：静噪等级设置
+* 寄存器�?�明: REG_78H
 *             rssi_sq_th_in[7:0]   REG_78H[15:8]
 *             rssi_sq_th_out[7:0]  REG_78H[7:0]
 ***********************************************************************/
@@ -1139,7 +1139,7 @@ void Rfic_SQLSetup()
             }
         }
         else
-        {//AM频段静躁采用V段 130M的补偿值
+        {//AM频�?�静躁采用V�? 130M的补偿�??
             UINT_BUFF = TH_SQL_TAB[9] - OFFSET_SQL_V_136[0];
             i = UINT_BUFF - 3;
         }
@@ -1149,13 +1149,13 @@ void Rfic_SQLSetup()
 }
 
 /*********************************************************************
-* 函 数 名: RfSetAfout
-* 功能描述: Rfic输出音频类型
+* �? �? �?: RfSetAfout
+* 功能描述: Rfic输出音�?�类�?
 * 全局变量: 
-* 输入参数: 0:MUTE 1 RX AFOUT   2:BEEP/ TX Side Ton  3:RX ALARM TONE 接收报警音
+* 输入参数: 0:MUTE 1 RX AFOUT   2:BEEP/ TX Side Ton  3:RX ALARM TONE 接收报�?�音
 * 输出参数:
-* 返　　回:
-* 说    明：2019.03.10 hht  v1.0
+* 返�??�?�?:
+* �?    明：2019.03.10 hht  v1.0
 ***********************************************************************/
 const U16 afState[] =
 {
@@ -1182,7 +1182,7 @@ void Rfic_SetAfout(U8  state)
 
 
     if(state == 3 || state == 0xF1)
-    {//Beep音 独立调整音量大小
+    {//Beep�? �?立调整音量大�?
         Rfic_WriteWord(0x48,0xB800 | 10<<4 | 2); 
     }
     else
@@ -1293,7 +1293,9 @@ void Rfic_EnterDTMFMode(U8  flagTx)
     
     if(flagTx == 1)
     {
-        Rfic_WriteWord(0x70, 0xE0E0);               // BIT8 - 14: Tone1 Gain/ BIT0 - 6  Tone2/FSK Gain  
+        U8 rogerVol = g_radioInform.remain0[1];
+        if (rogerVol == 0) rogerVol = 0xE0;
+        Rfic_WriteWord(0x70, (rogerVol << 8) | rogerVol);               // BIT8 - 14: Tone1 Gain/ BIT0 - 6  Tone2/FSK Gain  
     }
 
     Rfic_WriteWord(0x3F, 0X0800);
@@ -1313,7 +1315,19 @@ void Rfic_ExitDTMFMode(void)
     {
         Rfic_WriteWord(0x70, 0X0000);
     }
-    Rfic_SetScramble(g_CurrentVfo->scarmble,g_CurrentVfo->rx->frequency);
+    
+    // Optimizacion: Solo reconfigurar scramble si esta activo en este VFO
+    if (g_CurrentVfo->scarmble > 0)
+    {
+        if (Rfic_GetRxTxState() == 1)
+        {
+            Rfic_SetScramble(g_CurrentVfo->scarmble, g_CurrentVfo->tx->frequency);
+        }
+        else
+        {
+            Rfic_SetScramble(g_CurrentVfo->scarmble, g_CurrentVfo->rx->frequency);
+        }
+    }
 }
 
 void Rfic_SetDtmfFreq( U16 tone1Freq, U16 tone2Freq)
@@ -1574,9 +1588,9 @@ U8  Rfic_ReadMDC1200Data(U16 *pData)
 
 
 /**************************************************************
-*  函 数 名: Rfic_SetTone1Freq
-*  参    数: 频率转化后的数据, dat = freq(kHz) * 10.32444
-*  描    述: 设置 Tone1 的频率
+*  �? �? �?: Rfic_SetTone1Freq
+*  �?    �?: 频率�?化后的数�?, dat = freq(kHz) * 10.32444
+*  �?    �?: 设置 Tone1 的�?�率
 **************************************************************/
 void Rfic_SetToneFreq( U16 dat )
 {
@@ -1616,13 +1630,13 @@ void Rfic_TxSingleTone_Off(void)
     Rfic_WriteWord(0x70, 0X0000);
 
     if(Rfic_GetRxTxState() == 1)
-    {// 发射Tone转为发射但不发Tone音
+    {// 发射Tone�?为发射但不发Tone�?
         Rfic_RxTxOnOffSetup(RFIC_TXON);
         freq = g_CurrentVfo->tx->frequency;
     }
     else
     {
-        Rfic_RxTxOnOffSetup(RFIC_RXON);//切换到接收模式
+        Rfic_RxTxOnOffSetup(RFIC_RXON);//切换到接收模�?
         freq = g_CurrentVfo->rx->frequency;
     }
     
@@ -1632,7 +1646,7 @@ void Rfic_TxSingleTone_Off(void)
 
 extern Boolean Rfic_GetSQLinkState(void)
 {
-    //静噪等级为0时，直接开启
+    //静噪等级�?0时，直接�?�?
     if(g_radioInform.sqlLevel == 0)
     {
         return TRUE;
@@ -1815,7 +1829,7 @@ void Rfic_WriteWord(U8  devAddr,U16 devData)
 U16 Rfic_ReadWord(U8  devAddr)
 {
     U16 MaskData = 0x8000;           // MSB first 
-    U16 devData = 0;            // 读取的字节数据
+    U16 devData = 0;            // 读取的字节数�?
 
     devAddr |= BIT7;
     RFIC_SCN_L;

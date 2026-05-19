@@ -42,16 +42,28 @@ To build the code, follow these steps:
 
 ## Uploading
 
-To upload the code to the radio, you will need to use a programming cable. You can find programming cables for the Baofeng UV-K6x series of radios on eBay or Amazon. Once you have the programming cable, you can upload the code by running the BFK6_Bootloader.exe program on a Windows computer.
+To upload the code to the radio, you will need a standard programming cable.
 
-To upload the code to the radio, follow these steps:
+### Method A: Linux (Native & Secure)
+Use our interactive rescue tool to flash directly from your terminal:
+1. Power off your UV-K6 radio.
+2. Connect the programming cable to the radio and your computer.
+3. Press and hold the **PTT** side button, then turn on the radio to enter bootloader mode (flashlight will turn solid or LED will blink).
+4. Run the rescue flasher with `sudo` permissions:
+   ```bash
+   sudo ./venv/bin/python3 k6_rescue.py
+   ```
+5. Choose option `[1]` to select and flash your newly compiled custom firmware from the `out/` folder.
+
+### Method B: Windows
+You can upload the code using the Windows utility:
 1. Power off your UV-K6 radio.
 2. Connect the programming cable to the radio and the computer.
-3. Press and hold 2 ORANGE side buttons on the radio, then turn on the radio, you will see the screen shows "UPDATE" and the radio will be in the update mode.
-4. Run the BFK6_Bootloader.exe program on your computer.
-5. Click the "..." button and select the output binary file from the ./out/ folder.
+3. Press and hold the 2 ORANGE side buttons on the radio, then turn on the radio (screen will show "UPDATE").
+4. Run `historicos/BFK6_Bootloader.exe` on your computer.
+5. Click the "..." button and select the output binary file from the `out/` folder.
 6. Select the COM port that the programming cable is connected to.
-6. Click the large "按两个侧键开机进入升级(Power on with side buttons pressed to Enter Upgrade)" button to upload the code to the radio.
+7. Click the large "按两个侧键开机进入升级 (Power on with side buttons pressed to Enter Upgrade)" button to upload the code to the radio.
 
 ## License
 

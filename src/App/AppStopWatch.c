@@ -77,7 +77,7 @@ extern void StopWatchDisplayHome(void)
 
     LCD_ClearWorkArea();
 
-    sprintf(disBuf,"%s",(U8 *)((g_radioInform.language== LANG_CN)?"   秒 表    ":" STOP WATCH "));
+    sprintf(disBuf,"%s",(U8 *)" STOP WATCH ");
     LCD_DisplayText(17, 20,(U8 *)disBuf, FONTSIZE_16x16,LCD_DIS_NORMAL);
 
     StopWatchDisplayTime();
@@ -125,5 +125,4 @@ extern void KeyProcess_StopWatch(U8 keyEvent)
             break;
     }
 }
-
 

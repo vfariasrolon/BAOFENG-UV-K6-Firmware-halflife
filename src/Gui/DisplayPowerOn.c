@@ -20,8 +20,8 @@ extern void UI_DisplayPowerOn(void)
     // Mostrar el título "HALF-LIFE" centrado e invertido dentro de la barra
     LCD_DisplayText(16, 28, (U8 *)"HALF-LIFE", FONTSIZE_16x16, LCD_DIS_INVERT);
 
-    // Subtítulo del ecosistema "ROIP ECOSYSTEM" en modo normal (negro sobre fondo claro)
-    LCD_DisplayText(36, 22, (U8 *)"ROIP ECOSYSTEM", FONTSIZE_12x12, LCD_DIS_NORMAL);
+    // Subtítulo "BY VALVE" en modo normal (negro sobre fondo claro)
+    LCD_DisplayText(36, 40, (U8 *)"BY VALVE", FONTSIZE_12x12, LCD_DIS_NORMAL);
 
     // Micro-animación premium: Marco exterior de la barra de progreso de carga en la parte inferior
     LCD_DrawRectangle(51, 34, 60, 5, 0);
@@ -30,7 +30,7 @@ extern void UI_DisplayPowerOn(void)
     LCD_UpdateFullScreen();
 
     // Estabilización eléctrica: Encender la luz de fondo después del primer renderizado
-    LcdBackLightSwitch(LED_ON);
+    LCD_BackLightSetOn();
 
     // Carga progresiva de la barra (animación fluida de 8 pasos, 56 píxeles de longitud máxima)
     for (i = 0; i <= 56; i += 8)

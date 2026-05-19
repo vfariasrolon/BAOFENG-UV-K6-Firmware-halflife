@@ -109,6 +109,7 @@ extern void  Rfic_ConfigTxMode(void);
 extern void  Rfic_RxTxOnOffSetup(U8  ON_FLAG);
 extern void  Rfic_SetAfout(U8  state);
 extern void  Rfic_SetPA(U16 dat);
+extern U8   Rfic_GetTxPAPara(void);
 
 extern U16 Rfic_GetRssiVal(void);
 extern U8  Rfic_GetNoiseVal(void);

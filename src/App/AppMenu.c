@@ -39,295 +39,113 @@ extern U32 loadCtcssVal(U16 ctcss)
     return i;
 }
 
+extern void PlayRogerPreview(U8 val)
+{
+    U8 rogerVol = g_radioInform.remain0[1];
+    if (rogerVol == 0 || rogerVol > 255) rogerVol = 90;
+    
+    if (val == 0) return; // OFF
+    
+    Rfic_EnterDTMFMode(0);
+    Rfic_WriteWord(0x70, (rogerVol << 8) | rogerVol);
+    Rfic_RxTxOnOffSetup(RFIC_TONE);
+    Rfic_SetAfout(3);
+    SpeakerSwitch(ON);
+    
+    switch (val)
+    {
+        case 1: // Preset 1: Classic Double Chirp
+            Rfic_SetToneFreq(100); // 1000 Hz
+            DelayMs(60);
+            Rfic_SetToneFreq(80);  // 800 Hz
+            DelayMs(60);
+            break;
+            
+        case 2: // Preset 2: Sharp Single Beep
+            Rfic_SetToneFreq(120); // 1200 Hz
+            DelayMs(80);
+            break;
+            
+        case 3: // Preset 3: Triple Quiki
+            Rfic_SetToneFreq(120); // 1200 Hz
+            DelayMs(40);
+            Rfic_SetToneFreq(100); // 1000 Hz
+            DelayMs(40);
+            Rfic_SetToneFreq(120); // 1200 Hz
+            DelayMs(40);
+            break;
+            
+        case 4: // Preset 4: Laser Chirp
+            Rfic_SetToneFreq(150); // 1500 Hz
+            DelayMs(40);
+            Rfic_SetToneFreq(120); // 1200 Hz
+            DelayMs(40);
+            break;
+            
+        default:
+            break;
+    }
+    
+    SpeakerSwitch(OFF);
+    Rfic_SetToneFreq(0);
+    Rfic_ExitDTMFMode();
+}
+
+extern void ApplyCalibrationCalibrationSPI(U8 index, U16 val)
+{
+    switch(index)
+    {
+        case S_MICGAIN:
+            Rfic_WriteWord(0x7D, 0xE940 | (val & 0x1F));
+            break;
+        case S_ROGERVOL:
+            Rfic_WriteWord(0x70, (val << 8) | val);
+            PlayRogerPreview(g_radioInform.remain0[3] ? g_radioInform.remain0[3] : 1);
+            break;
+        case S_SQVOL:
+            Rfic_WriteWord(0x48, 0x8000 | (val << 4) | 0x02); 
+            break;
+        case S_TXTEST:
+            PlayRogerPreview(val);
+            break;
+        case S_KEYBEEP:
+            g_radioInform.beepsSwitch = val;
+            Flash_SaveRadioImfosData();
+            break;
+    }
+}
+
 extern void Menu_GetSubItemPara(U8 menuIndex)
 {
     g_menuInfo.inputMode = MENU_ONE_SELECT;
     switch(menuIndex)
     {
-        case S_CHNAME:
-            g_menuInfo.inputMode = MENU_ONE_CHAR;
-            g_inputbuf.maxLen = 12;
-            g_inputbuf.isFirstInput = 0xaa;
-        
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == VFO_MODE)
-            {//频率模式不需要设置信道名称
-                g_menuInfo.selectedItem = 0xFFFF;
-                break;
-            }
-        
-            if(!(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].channelName[0] == 0xFF || g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].channelName[0] == 0x00))
-            {
-                g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].channelName[12] = 0;
-                g_inputbuf.len = sprintf(g_inputbuf.buf,"%s",g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].channelName);
-            }
-            g_menuInfo.selectedItem = 0;
+        case S_MICGAIN:
+            g_menuInfo.subMaxItem = 32;
+            g_menuInfo.selectedItem = g_radioInform.remain0[0];
+            if (g_menuInfo.selectedItem > 31) g_menuInfo.selectedItem = 26;
             break;
-        case S_RXFREQ:
-            g_menuInfo.inputMode = MENU_CH_FREQ;
-            g_menuInfo.selectedItem = g_CurrentVfo->rx->frequency;
+        case S_ROGERVOL:
+            g_menuInfo.subMaxItem = 256;
+            g_menuInfo.selectedItem = g_radioInform.remain0[1];
+            if (g_menuInfo.selectedItem > 255) g_menuInfo.selectedItem = 224;
             break;
-        case S_TXFREQ:
-            g_menuInfo.inputMode = MENU_CH_FREQ;
-            g_menuInfo.selectedItem = g_CurrentVfo->tx->frequency;
+        case S_SQVOL:
+            g_menuInfo.subMaxItem = 256;
+            g_menuInfo.selectedItem = g_radioInform.remain0[2];
+            if (g_menuInfo.selectedItem > 255) g_menuInfo.selectedItem = 120;
             break;
-        case S_RXCTS:
-            g_menuInfo.inputMode = MENU_ONE_CTCSS;
-            g_menuInfo.subMaxItem = 51;
-            g_menuInfo.selectedItem = loadCtcssVal(g_CurrentVfo->rx->dcsCtsNum);
-            
-            break;    
-        case S_RXDCS:
-            g_menuInfo.inputMode = MENU_ONE_DECODE;
-            g_menuInfo.subMaxItem = 212;
-
-            if((g_CurrentVfo->rx->dcsCtsNum & 0xA0000000) == 0XA0000000)
-            {//将破码固定为211
-                g_menuInfo.selectedItem = 211;
-                g_sysRunPara.decoderCode = g_CurrentVfo->rx->dcsCtsNum;
-            }
-            else if(g_CurrentVfo->rx->dcsCtsNum  > 210)
-            {
-                g_menuInfo.selectedItem =  0;
-            }
-            else
-            {
-                g_menuInfo.selectedItem = g_CurrentVfo->rx->dcsCtsNum;
-            }
+        case S_TXTEST:
+            g_menuInfo.subMaxItem = 5;
+            g_menuInfo.selectedItem = g_radioInform.remain0[3];
+            if (g_menuInfo.selectedItem > 4) g_menuInfo.selectedItem = 1;
             break;
-        case S_TXCTS: 
-            g_menuInfo.inputMode = MENU_ONE_CTCSS;
-            g_menuInfo.subMaxItem = 51;
-            g_menuInfo.selectedItem = loadCtcssVal(g_CurrentVfo->tx->dcsCtsNum);
-            break;
-        case S_TXDCS: 
-            g_menuInfo.inputMode = MENU_ONE_DECODE;
-            g_menuInfo.subMaxItem = 212;
-            if((g_CurrentVfo->tx->dcsCtsNum & 0xA0000000) == 0XA0000000)
-            {//将破码固定为211
-                g_menuInfo.selectedItem = 211;
-                g_sysRunPara.decoderCode = g_CurrentVfo->rx->dcsCtsNum;
-            }
-            else if(g_CurrentVfo->tx->dcsCtsNum  > 210)
-            {
-                g_menuInfo.selectedItem =  0;
-            }
-            else
-            {
-                g_menuInfo.selectedItem = g_CurrentVfo->tx->dcsCtsNum;
-            }
-            break;
-        case S_WN: 
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_CurrentVfo->wideNarrow;
-            break;
-        case S_TXPR: 
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_CurrentVfo->txPower;
-            break;
-        case S_SPMUTE:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_CurrentVfo->spMute;
-            break;
-        case S_TXFORBID:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.txForbid;
-            break;
-        case S_SFTD:
-            g_menuInfo.subMaxItem = 3;
-            g_menuInfo.selectedItem = g_CurrentVfo->freqDir;
-            break;
-        case S_OFFSE:
-            g_menuInfo.inputMode = MENU_ONE_FREQ;
-            g_menuInfo.selectedItem = g_CurrentVfo->freqOffset;
-            g_menuInfo.inputVal = g_menuInfo.selectedItem;
-            break;
-        case S_MEMCH: 
-        case S_DELCH:
-            g_menuInfo.subMaxItem = 999;
-            g_menuInfo.inputMode = MENU_ONE_CODE;
-            g_menuInfo.selectedItem = g_ChannelVfoInfo.channelNum[g_ChannelVfoInfo.switchAB];
-            break;
-        case S_VFOSCAN:
-            g_menuInfo.inputMode = MENU_ONE_VFOSCAN;
-            g_menuInfo.selectedItem = g_radioInform.vfoScanRangeH+g_radioInform.vfoScanRangeL*1000L;
-            break;
-        case S_SCREV:
-            g_menuInfo.subMaxItem = 3;
-            g_menuInfo.selectedItem = g_radioInform.scanMode;
-            break;
-        case S_DTST:
-            g_menuInfo.subMaxItem = 4;
-            g_menuInfo.selectedItem = g_radioInform.dtmfTone;
-            break;
-        case S_PTTID: 
-            g_menuInfo.subMaxItem = 4;
-            g_menuInfo.selectedItem = g_CurrentVfo->pttIdMode;
-            break;
-        case S_PTTLT:
-            g_menuInfo.subMaxItem = 7;
-            g_menuInfo.selectedItem = g_radioInform.pttIdTime;
-            break;
-        case S_SQL:
-            g_menuInfo.subMaxItem = 10;
-            g_menuInfo.selectedItem = g_radioInform.sqlLevel;
-            break;
-        case S_SAVE:
-            g_menuInfo.subMaxItem = 4;
-            g_menuInfo.selectedItem = g_radioInform.saveLevel;
-            break;
-        case S_VOX:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.voxSwitch;
-            break;
-        case S_VOXLV: 
-            g_menuInfo.inputMode = MENU_ONE_CODE;
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.voxLevel;
-            break;
-        case S_VOXDLY:
-            g_menuInfo.subMaxItem = 16;
-            g_menuInfo.selectedItem = g_radioInform.voxDelay;
-            break;
-        case S_TOT:
-            g_menuInfo.subMaxItem = 13;
-            g_menuInfo.selectedItem = g_radioInform.totLevel;
-            break;
-        case S_LAN:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.language;
-            break;
-        case S_VOIC:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.voiceSw;
-            break;
-        case S_MENUEXIT:
-            g_menuInfo.subMaxItem = 11;
-            g_menuInfo.selectedItem = g_radioInform.menuExitTime;
-            break;
-        case S_BEEP:
+        case S_KEYBEEP:
             g_menuInfo.subMaxItem = 2;
             g_menuInfo.selectedItem = g_radioInform.beepsSwitch;
             break;
-        case S_ROGE: 
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.txOffTone;
-            break;
-        case S_BUSYLOCK: 
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_CurrentVfo->busyLock;
-            break;
-        case S_PONTYPE:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.OpFlag1.Bit.b0;
-            break;
-        case S_PONTONE:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.OpFlag1.Bit.b2;
-            break;
-        case S_PONMSG:
-            g_menuInfo.inputMode = MENU_ONE_CHAR;
-            g_inputbuf.maxLen = 16;
-            g_inputbuf.isFirstInput = 0xaa;
-        
-            //名称未设置
-            if(!(powerOnMsg[0] == 0xFF || powerOnMsg[0] == 0x00))
-            {
-                g_inputbuf.len = sprintf(g_inputbuf.buf,"%s",powerOnMsg);
-            }
-            g_menuInfo.selectedItem = 0;
-            break;
-        case S_PWR:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.pwrPwdFlag;
-            break;
-        case S_TDR:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.dualRxFlag;
-            break;
-        case S_MDF1: 
-            g_menuInfo.subMaxItem = 4;
-            g_menuInfo.selectedItem = g_radioInform.channleDisA;
-            break;
-        case S_MDF2: 
-            g_menuInfo.subMaxItem = 4;
-            g_menuInfo.selectedItem = g_radioInform.channleDisB;
-            break;
-        case S_RPSTE:
-            g_menuInfo.subMaxItem = 11;
-            g_menuInfo.selectedItem = g_radioInform.rpste;
-            break;
-        case S_RPTRL:
-            g_menuInfo.subMaxItem = 11;
-            g_menuInfo.selectedItem = g_radioInform.rptrl;
-            break;
-        case S_RTONE: 
-            g_menuInfo.subMaxItem = 4;
-            g_menuInfo.selectedItem = g_radioInform.rtone;
-            break;
-        case S_STEP: 
-            g_menuInfo.subMaxItem = 8;
-            g_menuInfo.selectedItem = g_CurrentVfo->freqStep;
-            break;
-        case S_TAIL:  
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.tailSwitch;
-            break;
-        case S_ALMOD: 
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.alarmMode;
-            break;
-        case S_SK1:
-            g_menuInfo.subMaxItem = 7;
-            g_menuInfo.selectedItem = g_radioInform.userSideKey[0];
-            break;
-        case S_SKL1:
-            g_menuInfo.subMaxItem = 7;
-            g_menuInfo.selectedItem = g_radioInform.userSideKey[1];
-            break;
-        case S_SK2:
-            g_menuInfo.subMaxItem = 7;
-            g_menuInfo.selectedItem = g_radioInform.userSideKey[2];
-            break;
-        case S_ABR:  
-            g_menuInfo.subMaxItem = 5;
-            g_menuInfo.selectedItem = g_radioInform.autoBack;
-            break;
-        case S_BRIGHT:
-            g_menuInfo.inputMode = MENU_ONE_CODE;
-            g_menuInfo.subMaxItem = 5;
-            g_menuInfo.selectedItem = g_radioInform.brightness;
-            break;
-        case S_REFLEX:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.DisplayStyles&0x01;
-            break;
-        case S_AUTOLK: 
-            g_menuInfo.subMaxItem = 4;
-            g_menuInfo.selectedItem = g_radioInform.keyAutoLock;
-            break;
-        case S_FMINT: 
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.fmInterrupt&0x01;
-            break;
-        case S_RESET:  
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = 0;
-            break;
-        case S_WATCH:
-            g_menuInfo.subMaxItem = 1;
-            g_menuInfo.selectedItem = 0;
-            break;
-        case S_MICGAIN:
-            g_menuInfo.subMaxItem = 32; // 0 to 31 range
-            g_menuInfo.selectedItem = g_radioInform.remain0[0];
-            if (g_menuInfo.selectedItem > 31) {
-                g_menuInfo.selectedItem = 26; // Default to 26
-            }
-            break;
-        case S_INFO:
         default:
-            g_menuInfo.inputMode = MENU_ONE_NULL;
-            g_menuInfo.subMaxItem = 2;
+            g_menuInfo.subMaxItem = 0;
             g_menuInfo.selectedItem = 0;
             break;
     }
@@ -385,7 +203,7 @@ extern void Menu_ExitMode(void)
         return;
     }
 
-    //保存设置的数据
+    //保存设置的数�?
     Flash_SaveRadioImfosData();
     if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
     {
@@ -423,6 +241,7 @@ extern void Menu_Up(void)
             g_menuInfo.selectedItem = 0;
         }
         g_menuInfo.inputVal = 0;
+        ApplyCalibrationCalibrationSPI(g_menuInfo.menuIndex, g_menuInfo.selectedItem);
     }
     else
     {
@@ -461,6 +280,7 @@ extern void Menu_Down(void)
             g_menuInfo.selectedItem = g_menuInfo.subMaxItem - 1;
         }
         g_menuInfo.inputVal = 0;
+        ApplyCalibrationCalibrationSPI(g_menuInfo.menuIndex, g_menuInfo.selectedItem);
     }
     else
     {
@@ -562,7 +382,7 @@ void FreqTypeIn(U8 input)
         g_menuInfo.inputVal = 0;
     }
 
-    //播报数字
+    //�?报数�?
     temp = g_inputbuf.buf[g_inputbuf.len-1] - '0';
     if(g_radioInform.voiceSw == 0)
 	{
@@ -603,7 +423,7 @@ void ChanlFreqTypeIn(U8 input)
         g_menuInfo.inputVal = 0;
     }
 
-    //播报数字
+    //�?报数�?
     temp = g_inputbuf.buf[g_inputbuf.len-1] - '0';
     if(g_radioInform.voiceSw == 0)
 	{
@@ -643,7 +463,7 @@ void ScanRangeTypeIn(U8 input)
         g_menuInfo.inputVal = 0;
     }
 
-    //播报数字
+    //�?报数�?
     temp = g_inputbuf.buf[g_inputbuf.len-1] - '0';
     if(g_radioInform.voiceSw == 0)
 	{
@@ -682,7 +502,7 @@ extern void SaveRadioFreq(U8 tx)
         freq = g_menuInfo.inputVal;
         
         if(CheckFreqInRange(freq) == TRUE)
-        {//判断频率是否在范围内
+        {//判断频率�?否在范围�?
             if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
             {
                 if(tx)
@@ -802,7 +622,7 @@ void OffectFrequency2Buf(U32 freq,U8 *dest,U8 len)
     sprintf(buf,"%07d",freq);
 
     for(i=0;i<len;i++)
-    {//将ASC转换为hex
+    {//将ASC�?�?为hex
         dest[i] = buf[i] - 0x30;
     }
 }
@@ -840,7 +660,7 @@ extern void SaveChMemory(void)
             {
                 tempCh.decoderCode = searchFreqImofs.CtsResult;
                 tempCh.decoderCode &= 0X007FFFFF;
-                tempCh.decoderCode |= 0xA0000000; // 表示学习跳频
+                tempCh.decoderCode |= 0xA0000000; // 表示学习跳�??
                 tempCh.chFlag3.Byte |= 0X01;//破码标志
             }
         }
@@ -888,13 +708,13 @@ extern void SaveChMemory(void)
                 VoiceBroadcastWithBeepLock(vo_Rxmemory,BEEP_FMDOWN);
             }
     
-            tempCh.chFlag3.Bit.b6 = g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].wideNarrow;//宽窄带
+            tempCh.chFlag3.Bit.b6 = g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].wideNarrow;//宽窄�?
             tempCh.chFlag3.Bit.b0 = g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].vfoFlag.Bit.b0;
     		tempCh.txPower = g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].txPower;//发射功率
             tempCh.chFlag3.Bit.b3 = g_radioInform.txBusyLock;//繁忙锁定
-            tempCh.dtmfgroup = g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].dtmfgroup;//信令码
+            tempCh.dtmfgroup = g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].dtmfgroup;//信令�?
     		tempCh.pttID = g_radioInform.pttIdMode;//PTT_ID
-    		tempCh.chFlag3.Bit.b2 = 1;//扫描添加默认ON
+    		tempCh.chFlag3.Bit.b2 = 1;//�?描添加默�?ON
     		tempCh.chFlag3.Byte |= 0x02;
         }
     }
@@ -959,10 +779,10 @@ extern void SaveChDelete(void)
 
         if(g_ChannelVfoInfo.haveChannel == 0)
         {
-            //显示请等待
+            //显示请等�?
             if(g_radioInform.language == LANG_CN)
             {
-                sprintf(disBuf,"%-*.*s\n\r",16,16,"请等待...");
+                sprintf(disBuf,"%-*.*s\n\r",16,16,"请等�?...");
             }
             else
             {
@@ -971,7 +791,7 @@ extern void SaveChDelete(void)
             LCD_DisplayText(47, 0, (U8 *)disBuf, FONTSIZE_16x16,LCD_DIS_NORMAL);
             LCD_UpdateWorkAre();
             
-            //初始化为默认信道信息
+            //初�?�化为默认信道信�?
             ResetChannelData();
             NVIC_SystemReset();//复位系统
         }
@@ -1021,7 +841,7 @@ extern void EnterResetMode(void)
     memset(disBuf,0x00,17);
     if(g_radioInform.language == LANG_CN)
     {
-        sprintf(disBuf,"%-*.*s\n\r",16,16,"确认初始化?");
+        sprintf(disBuf,"%-*.*s\n\r",16,16,"�?认初始化?");
     }
     else
     {
@@ -1037,13 +857,13 @@ extern void EnterResetMode(void)
             App_10msTask();
         }
         
-        //100ms运行一次
+        //100ms运�?�一�?
         if(g_100msFlag)
         {
             App_100msTask();
         }
 
-        //500ms运行一次
+        //500ms运�?�一�?
         if(g_500msFlag)
         {
             App_500msTask();
@@ -1063,16 +883,16 @@ extern void EnterResetMode(void)
         }
 
         if(g_sysRunPara.sysRunMode != MODE_MENU)
-        {//按PTT直接退出菜单
+        {//按PTT直接�?出菜�?
             return;
         }
         Audio_PlayTask();
     }
 
-    //显示请等待
+    //显示请等�?
     if(g_radioInform.language == LANG_CN)
     {
-        sprintf(disBuf,"%-*.*s\n\r",16,16,"  请等待...  ");
+        sprintf(disBuf,"%-*.*s\n\r",16,16,"  请等�?...  ");
     }
     else
     {
@@ -1093,7 +913,7 @@ extern void EnterResetMode(void)
         ResetRadioFunData();
     }
     
-    //延时500ms后重启
+    //延时500ms后重�?
     DelayMs(500);
     //复位系统
     NVIC_SystemReset();
@@ -1104,267 +924,26 @@ extern void Menu_SaveSelectItem(U8 menuIndex)
 {
     switch(menuIndex)
     {
-        case S_CHNAME:
-            if(g_inputbuf.len > 12)
-            {
-                g_inputbuf.len = 12;
-            }
-            memset(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].channelName,0xff,12);
-            memcpy(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].channelName,g_inputbuf.buf, 12);
-            LCD_UpdateWorkAre();
-            break;
-        case S_RXFREQ:
-            SaveRadioFreq(0);
-            break;
-        case S_TXFREQ:
-            SaveRadioFreq(1);
-            break;
-        case S_RXCTS:
-            SaveRadioCtcss(0);
-            break;    
-        case S_RXDCS:
-            SaveRadioDcs(0);
-            break;
-        case S_TXCTS: 
-            SaveRadioCtcss(1);
-            break;
-        case S_TXDCS: 
-            SaveRadioDcs(1);
-            break;
-        case S_WN: 
-            g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].wideNarrow = g_menuInfo.selectedItem;
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
-            {
-                 g_ChannelVfoInfo.channelInfo[g_ChannelVfoInfo.switchAB].chFlag3.Bit.b6 = g_menuInfo.selectedItem;
-            }
-            else
-            {
-                g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].vfoFlag.Bit.b6  = g_menuInfo.selectedItem;
-            }
-            break;
-        case S_TXPR:
-            g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].txPower = g_menuInfo.selectedItem;
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
-            {
-                 g_ChannelVfoInfo.channelInfo[g_ChannelVfoInfo.switchAB].txPower = (g_ChannelVfoInfo.channelInfo[g_ChannelVfoInfo.switchAB].txPower &0x0f) | g_menuInfo.selectedItem;
-            }
-            else
-            {
-                g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].txPower = (g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].txPower & 0x0f) | g_menuInfo.selectedItem;
-            }
-            break;
-        case S_SPMUTE:
-            g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].spMute = g_menuInfo.selectedItem;
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
-            {
-                 g_ChannelVfoInfo.channelInfo[g_ChannelVfoInfo.switchAB].chFlag3.Bit.spMute = g_menuInfo.selectedItem;
-            }
-            else
-            {
-                g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].spMute = g_menuInfo.selectedItem;
-            }
-            break;
-        case S_TXFORBID:
-            g_radioInform.txForbid = g_menuInfo.selectedItem;
-            break;
-        case S_SFTD:
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
-            {
-                VoiceBroadcastWithBeepLock(vo_Cancel,BEEP_EXITMENU);
-            }
-            else
-            {
-                g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].dtmfgroup &= 0x1F;
-                if(g_menuInfo.selectedItem == 1)
-                {
-                    g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].dtmfgroup |= 0x20;
-                }
-                else if(g_menuInfo.selectedItem == 2)
-                {
-                    g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].dtmfgroup |= 0x40;
-                }
-                else
-                {
-                }
-                ChannleVfoDataInit(g_ChannelVfoInfo.switchAB,0);
-            }
-            break;
-        case S_OFFSE:
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
-            {
-                VoiceBroadcastWithBeepLock(vo_Cancel,BEEP_EXITMENU);
-            }
-            else
-            {
-                if(g_inputbuf.len != 0)
-                {
-                    g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].freqOffset = g_menuInfo.inputVal;
-                }
-                g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].freqOffset = (g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].freqOffset+ 20)/50*50;
-
-                OffectFrequency2Buf(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].freqOffset,g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].Offset,7);
-                ChannleVfoDataInit(g_ChannelVfoInfo.switchAB,0);
-            }
-            break;
-        case S_MEMCH: 
-            SaveChMemory();
-            break;
-        case S_DELCH:
-            SaveChDelete();
-            break;
-        case S_VFOSCAN:
-            SaveVfoScanRanger();
-            break;
-        case S_SCREV:
-            g_radioInform.scanMode = g_menuInfo.selectedItem;
-            break;
-        case S_DTST:
-            g_radioInform.dtmfTone = g_menuInfo.selectedItem;
-            break;
-        case S_PTTID: 
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == VFO_MODE)
-            {
-                g_radioInform.pttIdMode = g_menuInfo.selectedItem;
-            }
-            else
-            {
-                g_ChannelVfoInfo.channelInfo[g_ChannelVfoInfo.switchAB].pttID = g_menuInfo.selectedItem;
-            }
-            
-            g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].pttIdMode = g_menuInfo.selectedItem;
-            break;
-        case S_PTTLT:
-            g_radioInform.pttIdTime = g_menuInfo.selectedItem;
-            break;
-        case S_SQL:
-            g_radioInform.sqlLevel = g_menuInfo.selectedItem;
-            break;
-        case S_SAVE: 
-            g_radioInform.saveLevel = g_menuInfo.selectedItem;
-            break;
-        case S_VOX: 
-            g_radioInform.voxSwitch = g_menuInfo.selectedItem;
-            break;
-        case S_VOXLV: 
-            g_radioInform.voxLevel = g_menuInfo.selectedItem;
-            break;
-        case S_VOXDLY:
-            g_radioInform.voxDelay = g_menuInfo.selectedItem;
-            break;
-        case S_TOT:
-            g_radioInform.totLevel = g_menuInfo.selectedItem;
-            break;
-        case S_LAN:
-            g_radioInform.language = g_menuInfo.selectedItem;
-            break;
-        case S_VOIC:
-            g_radioInform.voiceSw = g_menuInfo.selectedItem;
-            break;
-        case S_MENUEXIT:
-            g_radioInform.menuExitTime= g_menuInfo.selectedItem;
-            ResetMenuExitTime();
-            break;
-        case S_BEEP:
-            g_radioInform.beepsSwitch = g_menuInfo.selectedItem;
-            break;
-        case S_ROGE: 
-            g_radioInform.txOffTone = g_menuInfo.selectedItem;
-            break;
-        case S_BUSYLOCK:   
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == VFO_MODE)
-            {
-                g_radioInform.txBusyLock = g_menuInfo.selectedItem;
-            }
-            else
-            {
-                g_ChannelVfoInfo.channelInfo[g_ChannelVfoInfo.switchAB].chFlag3.Bit.b3 = g_menuInfo.selectedItem;
-            }
-            
-            g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].busyLock = g_menuInfo.selectedItem;
-            break;
-        case S_PONTYPE:
-            g_radioInform.OpFlag1.Bit.b0 = g_menuInfo.selectedItem;
-            break;
-        case S_PONTONE:
-            g_radioInform.OpFlag1.Bit.b2 = g_menuInfo.selectedItem;
-            break;
-        case S_PONMSG:
-            if(g_inputbuf.len > 16)
-            {
-                g_inputbuf.len = 16;
-            }
-            memset(powerOnMsg,0x00,16);
-            memcpy(powerOnMsg,g_inputbuf.buf,g_inputbuf.len);
-            LCD_UpdateWorkAre();
-            break;
-        case S_PWR:
-            g_radioInform.pwrPwdFlag = g_menuInfo.selectedItem;
-            break;
-        case S_TDR:
-            g_radioInform.dualRxFlag = g_menuInfo.selectedItem;
-            break;
-        case S_MDF1: 
-            g_radioInform.channleDisA = g_menuInfo.selectedItem;
-            break;
-        case S_MDF2: 
-            g_radioInform.channleDisB = g_menuInfo.selectedItem;
-            break;
-        case S_RPSTE:
-            g_radioInform.rpste = g_menuInfo.selectedItem;
-            break;
-        case S_RPTRL:
-            g_radioInform.rptrl = g_menuInfo.selectedItem;
-            break;
-        case S_RTONE: 
-            g_radioInform.rtone = g_menuInfo.selectedItem;
-            break;
-        case S_STEP: 
-            g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].freqStep = g_menuInfo.inputVal;
-            g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].STEP = g_menuInfo.inputVal;
-            break;
-        case S_TAIL:  
-            g_radioInform.tailSwitch = g_menuInfo.selectedItem;
-            break;
-        case S_ALMOD: 
-            g_radioInform.alarmMode = g_menuInfo.selectedItem;
-            break;
-        case S_SK1:
-            g_radioInform.userSideKey[0] = g_menuInfo.selectedItem;
-            break;
-        case S_SKL1:
-            g_radioInform.userSideKey[1] = g_menuInfo.selectedItem;
-            break;
-        case S_SK2:
-            g_radioInform.userSideKey[2] = g_menuInfo.selectedItem;
-            break;
-        case S_ABR:  
-            g_radioInform.autoBack = g_menuInfo.selectedItem;
-            break;
-        case S_BRIGHT:
-            g_radioInform.brightness = g_menuInfo.selectedItem;
-            SC5620_SetContpastRatio(g_radioInform.brightness);
-            break;
-        case S_REFLEX:
-            g_radioInform.DisplayStyles = g_menuInfo.selectedItem;
-            LCD_UpdateFullScreen();
-            break;
-        case S_AUTOLK: 
-            g_radioInform.keyAutoLock = g_menuInfo.selectedItem;
-            break;
-        case S_FMINT:  
-            g_radioInform.fmInterrupt = g_menuInfo.selectedItem;
-            break;
-        case S_RESET:    
-            EnterResetMode();
-            break;
-        case S_WATCH:
-            Menu_ExitMode();
-            EnterStopWatchMode();
-            break;
         case S_MICGAIN:
             g_radioInform.remain0[0] = g_menuInfo.selectedItem;
+            Flash_SaveRadioImfosData();
             break;
-        case S_INFO:
+        case S_ROGERVOL:
+            g_radioInform.remain0[1] = g_menuInfo.selectedItem;
+            Flash_SaveRadioImfosData();
+            break;
+        case S_SQVOL:
+            g_radioInform.remain0[2] = g_menuInfo.selectedItem;
+            Flash_SaveRadioImfosData();
+            break;
+        case S_TXTEST:
+            g_radioInform.remain0[3] = g_menuInfo.selectedItem;
+            Flash_SaveRadioImfosData();
+            break;
+        case S_KEYBEEP:
+            g_radioInform.beepsSwitch = g_menuInfo.selectedItem;
+            Flash_SaveRadioImfosData();
+            break;
         default:
             break;
     }
@@ -1439,13 +1018,13 @@ extern void Menu_EnterNextLevel(void)
         }
         
         if((g_menuInfo.inputMode == MENU_CH_FREQ || g_menuInfo.inputMode == MENU_ONE_VFOSCAN) && (g_inputbuf.len != 0 && g_inputbuf.len != 6))
-        {//输入频率时特殊处理
+        {//输入频率时特殊�?�理
             BeepOut(BEEP_NULL);
             return;
         }
         VoiceBroadcastWithBeepLock(vo_Confirm,BEEP_FASTSW);
 
-        //执行菜单保存函数
+        //执�?�菜单保存函�?
         if(g_menuInfo.menuType == 1)
         {
             Menu_SaveFmSelectItem(g_menuInfo.menuIndex);
@@ -1456,7 +1035,7 @@ extern void Menu_EnterNextLevel(void)
         }
 
         if(g_sysRunPara.sysRunMode != MODE_MENU)
-        {//执行菜单后，不在菜单模式，直接退出菜单
+        {//执�?�菜单后，不在菜单模式，直接�?出菜�?
             return;
         }
         g_rfRxState = RX_READY;
@@ -1478,7 +1057,7 @@ extern void Menu_EnterNextLevel(void)
     {//选择菜单模式
         //ResetInputBuf();
         if(g_menuInfo.inputMode == MENU_ONE_NULL)
-        {//当前菜单只用于显示内容，不带操作时，直接返回
+        {//当前菜单�?用于显示内�?�，不带操作时，直接返回
             VoiceBroadcastWithBeepLock(vo_Cancel,BEEP_EXITMENU);
             return;
         }
@@ -1555,7 +1134,7 @@ extern void Menu_KeyDigitalInput(U8 input)
 
     switch(g_menuInfo.inputMode)
     {
-        case MENU_ONE_CHAR:              //输入字母或者拼音
+        case MENU_ONE_CHAR:              //输入字母或�?�拼�?
             if(g_menuInfo.isSubMenu)
             {
                 if (NumToChar(input) != OK)
@@ -1564,7 +1143,7 @@ extern void Menu_KeyDigitalInput(U8 input)
                 }
                 break;
             }
-        case MENU_ONE_CTCSS:             //模拟亚音频选择和输入
+        case MENU_ONE_CTCSS:             //模拟亚音频�?�择和输�?
             if(g_menuInfo.isSubMenu)
             {
                 CtcssTypeIn(input);
@@ -1596,7 +1175,7 @@ extern void Menu_KeyDigitalInput(U8 input)
             }
         case MENU_ONE_DECODE:
             if((g_menuInfo.isSubMenu) && (flag == 0) && (g_sysRunPara.decoderCode == 0))
-            {//flag用于判断是否在code模式时，没有破码时，最大数量需要减1
+            {//flag用于判断�?否在code模式时，没有破码时，�?大数量需要减1
                 maxItem -= 1;
             }
         case MENU_ONE_SELECT:
@@ -1605,7 +1184,7 @@ extern void Menu_KeyDigitalInput(U8 input)
             {
                 g_menuInfo.fastSelect = 0;
             }
-            //用于菜单改变时快速选择菜单输入
+            //用于菜单改变时快速�?�择菜单输入
             if(flag)
             {
                 if((selectVal+1) != g_menuInfo.fastSelect)
@@ -1681,17 +1260,17 @@ extern void DcsSwitchPolarity(void)
     g_menuInfo.fastSelect = 0;
 
     if(g_menuInfo.selectedItem == 0 || g_menuInfo.selectedItem == 211)
-    {//如果是关闭状态或者破码状态则不切换
+    {//如果�?关闭状�?�或者破码状态则不切�?
         return;
     }
 
     if(g_menuInfo.selectedItem <= 105)
-    {//正码切换为反码
+    {//正码切换为反�?
         g_menuInfo.selectedItem += 105;
         BeepOut(BEEP_FMDOWN);
     }
     else
-    {//反码切换为正码
+    {//反码切换为�?�码
         g_menuInfo.selectedItem -= 105;
         BeepOut(BEEP_FMUP);
     }
@@ -1848,7 +1427,7 @@ extern void KeyProcess_Menu(U8 keyEvent)
             break;     
         case KEYID_WELL:
             if (g_menuInfo.inputMode == MENU_ONE_DECODE)
-            {//输入数字亚音模式切换正反码使用
+            {//输入数字亚音模式切换正反码使�?
                 DcsSwitchPolarity();
             }
             else
@@ -1879,4 +1458,3 @@ extern void KeyProcess_Menu(U8 keyEvent)
             break;
     }
 }
-

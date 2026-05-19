@@ -2,9 +2,9 @@
 
 void DelayUs(U16 n)// 1US
 {
-    U16 t = n * 8;
+    volatile U32 t = n * 8;
     while(t--){
-	
+        __asm__("nop");
     }
 }
 void DelayMs(U16 n)

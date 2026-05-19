@@ -78,17 +78,8 @@ extern void SearchFreqDisplayHome(void )
     
     LCD_ClearWorkArea();
 
-    if(g_radioInform.language == LANG_CN)
-    {
-        posx = 52;
-    }
-    else
-    {
-        posx = 46;
-    }
-    //显示扫频标志
-    LCD_DisplayText(17,posx,(U8 *)((g_radioInform.language == LANG_CN)?"扫频":"SEARCH"),FONTSIZE_12x12, LCD_DIS_NORMAL);	
+    posx = 46;
+    LCD_DisplayText(17,posx,(U8 *)"SEARCH",FONTSIZE_12x12, LCD_DIS_NORMAL);
     //显示频率
     SearchFreqModeDisplayStepMsg(STEP_SEEK_FREQ);
 }
-

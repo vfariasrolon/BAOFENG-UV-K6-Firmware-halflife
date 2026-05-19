@@ -16,7 +16,7 @@ extern void DisplayPassword(void)
 extern void DisplayPasswordHome(void)
 {
     LCD_ClearFullBuf();
-    LCD_DisplayText(20,8,(U8 *)((g_radioInform.language == LANG_CN)?"请输入开机密码":"Input Password"), FONTSIZE_16x16,LCD_DIS_NORMAL);
+    LCD_DisplayText(20,8,(U8 *)"Input Password", FONTSIZE_16x16,LCD_DIS_NORMAL);
     DisplayPassword();
     LCD_UpdateFullScreen();
 }
@@ -24,7 +24,7 @@ extern void DisplayPasswordHome(void)
 extern void DisplayPasswordError(void)
 {
     LCD_ClearFullBuf();
-    LCD_DisplayText(23,12,(U8 *)((g_radioInform.language == LANG_CN)?"   密码错误   ":"Password Error"), FONTSIZE_16x16,LCD_DIS_NORMAL);
+    LCD_DisplayText(23,12,(U8 *)"Password Error", FONTSIZE_16x16,LCD_DIS_NORMAL);
     LCD_UpdateFullScreen();
     DelayMs(2000);
     ResetInputBuf();
@@ -65,7 +65,7 @@ U8 CheckInputPassWord(void)
 void App_CheckPowerOnPassword(void)
 {     
     if(g_radioInform.pwrPwdFlag == 0 || g_radioInform.pwrPwdFlag == 0xFF)
-    {//未开启开机密码功能
+    {//�?�?�?�?机密码功�?
         return;
     }
 
@@ -110,7 +110,7 @@ void App_CheckPowerOnPassword(void)
                    break;
                case KEYID_MENU: 
                    if(CheckInputPassWord() == OK)
-                   {//判断开机密码通过
+                   {//判断�?机密码�?�过
                        return;
                    }
                    break;
@@ -144,4 +144,3 @@ void App_CheckPowerOnPassword(void)
         }
     }
 }
-

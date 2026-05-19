@@ -1,18 +1,24 @@
 #ifndef __DISPLAYMENU_H
     #define __DISPLAYMENU_H
 
-#define MENU_MAX_CNT              57
+#define MENU_MAX_CNT              5
 
 typedef struct
 {
     uint8_t voiceId;
     const char nameEn[16];  //英文名称
-    const char nameCn[16];  //中文名称
+    const char nameCn[16];  //�?文名�?
 }STR_MENU_ITEM;
 
 //定义菜单序列
 enum{   
-    S_CHNAME=0,
+    S_MICGAIN=0,
+    S_ROGERVOL,
+    S_SQVOL,
+    S_TXTEST,
+    S_KEYBEEP,
+
+    S_CHNAME,
     S_RXFREQ,
     S_TXFREQ,
     S_RXCTS,
@@ -67,8 +73,7 @@ enum{
     S_FMINT,   
     S_RESET,    
     S_WATCH,
-    S_INFO,
-    S_MICGAIN
+    S_INFO
 };
 extern String disBuf[17];
 /********************************************************************************************************************/

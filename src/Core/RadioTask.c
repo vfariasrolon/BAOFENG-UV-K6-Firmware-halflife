@@ -25,11 +25,11 @@ extern void GetHardWorkBand(U16 freq)
 const U16 TxCheckFreq[][6] =
 {
     {1360,1740,4000,4800,2200,2550},  //宝锋内部
-    {1440,1480,2220,2250,4200,4500},  //美国 FCC 业余无线电   
-    {1440,1480,4300,4500,4300,4500},  //加拿大 IC 业余无线电 02
-    {1440,1460,4300,4400,4300,4400},  //欧盟 CE 业余无线电    03
+    {1440,1480,2220,2250,4200,4500},  //美国 FCC 业余无线�?   
+    {1440,1480,4300,4500,4300,4500},  //加拿�? IC 业余无线�? 02
+    {1440,1460,4300,4400,4300,4400},  //欧盟 CE 业余无线�?    03
     {1360,1740,4000,4800,4000,4800},  //印尼业余04 IAN Amateur
-    {1440,1480,4300,4400,4300,4400},  //中国 05
+    {1440,1480,4300,4400,4300,4400},  //�?�? 05
 };
 
 Boolean CheckCanTxOverRange(U32 freq)
@@ -59,7 +59,7 @@ Boolean CheckFreqInTxFreqRange(U32 freq)
     
     tempFreq = freq / 10000;
 
-    //获取当前工作频段
+    //获取当前工作频�??
     GetHardWorkBand(tempFreq);
 
     if(CheckCanTxOverRange(freq) == TRUE)
@@ -75,7 +75,7 @@ Boolean CheckFreqInTxFreqRange(U32 freq)
         }
     }
 
-    //通过机型码判断频段信息
+    //通过机型码判�?频�?�信�?
     if(((tempFreq >= TxCheckFreq[g_sysRunPara.moduleType][0]) && (tempFreq < TxCheckFreq[g_sysRunPara.moduleType][1])) || ((tempFreq >= TxCheckFreq[g_sysRunPara.moduleType][2]) && (tempFreq < TxCheckFreq[g_sysRunPara.moduleType][3]))
      || ((tempFreq >= TxCheckFreq[g_sysRunPara.moduleType][4]) && (tempFreq < TxCheckFreq[g_sysRunPara.moduleType][5])))
     { 
@@ -198,7 +198,7 @@ extern void RxReset(void)
     g_rfRxState = RX_READY;
     g_sysRunPara.rfRxFlag.rxReceived = OFF; 
     g_sysRunPara.rfRxFlag.rxReceiveOn = OFF; 
-    //接收结束后重新计算省电时间
+    //接收结束后重新�?�算省电时间
     ResetTimeKeyLockAndPowerSave();
 }
 
@@ -235,27 +235,104 @@ extern void RF_TxEnd(void)
 
 extern void RF_TxRoger(void)
 {
-    if(g_radioInform.txOffTone == 1)
+    U8 rogerVol = g_radioInform.remain0[1];
+    U8 rogerMode = g_radioInform.remain0[3];
+    
+    // Cargar volumen por defecto limpio para evitar sobremodulacion
+    if (rogerVol == 0 || rogerVol > 255) 
     {
-        DtmfSendTxOver();
+        rogerVol = 90;
     }
-    else if(g_radioInform.txOffTone == 2)
+    
+    // Validar modo
+    if (rogerMode > 4)
     {
-        Rfic_EnterMDC1200Mode();
-        Rfic_MDC1200ToneTx();
-        Rfic_ExitMDC1200Mode();
+        rogerMode = 1; // Default a Preset 1
     }
-    else
+    
+    // Si Roger Beep esta en OFF (0), salimos directo sin sonar tonos
+    if (rogerMode == 0)
     {
+        if(g_radioInform.tailSwitch)
+        {
+            RF_SendTail(ON);
+            DelayMs(300);
+        }
+        RF_TxEnd();
+        return;
     }
+    
+    // Garantizamos fisicamente que el transmisor y el amplificador de potencia (PA) esten activos
+    RF_PowerSet(g_ChannelVfoInfo.BandFlag, PWR_TXON);
+    Rfic_SetPA(Rfic_GetTxPAPara());
+    LedTxSwitch(LED_ON); // LED encendido durante la emision de tonos
+    
+    // 1. Entramos a modo de tono/DTMF para transmision de aire
+    Rfic_EnterDTMFMode(1);
+    
+    // 2. Aplicamos la ganancia de tono ajustada
+    Rfic_WriteWord(0x70, (rogerVol << 8) | rogerVol);
+    
+    // 3. Abrimos la compuerta de audio del BK4829 para transmitir los tonos al aire
+    Rfic_SetAfout(3); // 3 = Beep Out for Tx
+    
+    // 4. Encendemos el generador de tonos
+    Rfic_RxTxOnOffSetup(RFIC_TXTONE);
+    
+    // 5. Ejecutamos el Preset correspondiente de Roger Beep
+    switch (rogerMode)
+    {
+        case 1: // Preset 1: Classic Double Chirp
+            Rfic_SetToneFreq(100); // 1000 Hz
+            DelayMs(60);
+            Rfic_SetToneFreq(80);  // 800 Hz
+            DelayMs(60);
+            break;
+            
+        case 2: // Preset 2: Sharp Single Beep
+            Rfic_SetToneFreq(120); // 1200 Hz
+            DelayMs(80);
+            break;
+            
+        case 3: // Preset 3: Triple Quiki (Tactical)
+            Rfic_SetToneFreq(120); // 1200 Hz
+            DelayMs(40);
+            Rfic_SetToneFreq(100); // 1000 Hz
+            DelayMs(40);
+            Rfic_SetToneFreq(120); // 1200 Hz
+            DelayMs(40);
+            break;
+            
+        case 4: // Preset 4: Laser Chirp
+            Rfic_SetToneFreq(150); // 1500 Hz
+            DelayMs(40);
+            Rfic_SetToneFreq(120); // 1200 Hz
+            DelayMs(40);
+            break;
+            
+        default:
+            break;
+    }
+    
+    // 6. Apagamos de forma limpia los tonos y restauramos el paso de audio
+    Rfic_SetToneFreq(0);
+    Rfic_SetAfout(0);
+    Rfic_ExitDTMFMode();
+    Rfic_RxTxOnOffSetup(RFIC_TXON); // Regresar a TX standard
+    
+    // Damos un breve respiro para que el transceptor termine de modular la senal
+    DelayMs(100);
 
     if(g_radioInform.tailSwitch)
     {
         RF_SendTail(ON);
         DelayMs(300);
     }
+    
+    // El LED se apagara de forma limpia aqui dentro
     RF_TxEnd();
 }
+
 
 void TotTimeWarning(void)
 {
@@ -268,7 +345,7 @@ void TotTimeWarning(void)
     if(g_sysRunPara.rfTxFlag.totTime < (g_radioInform.toa * 10))
     {
         if(g_sysRunPara.rfTxFlag.totTime%3 == 0)
-        {//发射LED闪烁,0.3S闪烁一次
+        {//发射LED�?�?,0.3S�?烁一�?
             if(flashFlag == 0)
             {
                 LedTxSwitch(LED_FLASH);
@@ -284,7 +361,7 @@ void TotTimeWarning(void)
     if(g_sysRunPara.rfTxFlag.totTime == 0)
     {//发射结束
         if(g_sysRunPara.dtmfToneFlag == 1)
-        {//防止一直按按键到发射超时
+        {//防�??�?直按按键到发射超�?
             Rfic_SetDtmfFreq(0,0);
             Rfic_EnterDTMFMode(0);
             Rfic_TxSingleTone_Off();
@@ -373,8 +450,8 @@ extern void RF_TxTask(void)
 }
 const U8 RssiLevel[5][4] =
 {   
-    {135,128,124,120}, //V段 ,116
-    {101, 94, 90, 86}, //U段, 82
+    {135,128,124,120}, //V�? ,116
+    {101, 94, 90, 86}, //U�?, 82
     {108,101, 97, 93}, //220-260, 89
     { 85, 78, 74, 71}, //350-390, 67
     {132,128,124,120}  //AM ,116
@@ -563,7 +640,7 @@ extern void RF_RxTask(void)
                
                sqCnt = 0;
                if(g_radioInform.fmInterrupt == 0 && g_sysRunPara.sysRunMode == MODE_FM)
-               {//收音机开启不允许打断
+               {//收音机开�?不允许打�?
                    return;
                }
                FmEnterSleepMode();
@@ -626,7 +703,7 @@ extern void RF_RxTask(void)
                if(g_CurrentVfo->rx->dcsCtsType)
                {
                    if(Rfic_GetTail())
-                   {//判断是否是尾音消除
+                   {//判断�?否是尾音消除
                        ctcsDetFlag = 1;
                        if(tailDetFlag == 0)
                        {
@@ -644,10 +721,10 @@ extern void RF_RxTask(void)
                        if(Rfic_CheckCtsState() == TRUE && dtmfInfo.matchTime[g_ChannelVfoInfo.dualAB] == 0)    
                        {   
                            if(g_sysRunPara.rfRxFlag.relayTailDetTime == 0 && ctcsDetFlag == 0)
-                           {//延时检测亚音，避免亚音频干扰
+                           {//延时�?测亚音，避免亚音频干�?
                                
                                ctcsDetFlag = 1;
-                               //亚音检测不对时，需要结束接收流程
+                               //亚音�?测不对时，需要结束接收流�?
                                g_sysRunPara.rfRxFlag.relayTailDetTime = 8;
                                if(g_sysRunPara.rfTxFlag.relayTailSetTime == 0)
                                {
@@ -658,7 +735,7 @@ extern void RF_RxTask(void)
                        else
                        {
                            ctcsDetFlag = 0;
-                           //判断亚音频延时使用
+                           //判断亚音频延时使�?
                            g_sysRunPara.rfRxFlag.relayTailDetTime = 20;
                        }
                    }

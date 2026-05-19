@@ -12,7 +12,7 @@ extern void DisplayProgrom(void)
     LCD_DisplayText(42,24, "Program...", FONTSIZE_16x16,LCD_DIS_NORMAL);
     LCD_UpdateFullScreen();
 
-    //开启按键背光灯
+    //�?�?按键背光�?
     LCD_BackLightSetOn();
 }
 
@@ -48,22 +48,22 @@ extern void DisplayStateBar(void)
         LCD_DisplayPicture(0,34,ICON_VOX_SIZEX,ICON_VOX_SIZEY,iconVox,LCD_DIS_NORMAL);
     }
 
-    //显示双频守候图标
+    //显示双�?�守候图�?
     if(g_radioInform.dualRxFlag == 1)
     {
         LCD_DisplayPicture(0,67,ICON_DUAL_SIZEX,ICON_DUAL_SIZEY,iconDual,LCD_DIS_NORMAL);
     }
 
-    //更新显示键盘锁定图标
+    //更新显示�?盘锁定图�?
     DisplayUpdateLockFlag(0);
 
-    //显示侧音开关图标
+    //显示侧音�?关图�?
     if(g_radioInform.dtmfTone)
     {
         LCD_DisplayPicture(0,17,ICON_DTMF_SIZEX,ICON_DTMF_SIZEY,iconDTMF,LCD_DIS_NORMAL);
     }
 
-    /*倒频功能标志*/
+    /*倒�?�功能标�?*/
     if(reverse == 2)
     {
         LCD_DisplayPicture(0,1,ICON_UNNET_SIZEX,ICON_UNNET_SIZEY,iconUnNet,LCD_DIS_NORMAL);
@@ -186,7 +186,7 @@ extern void DisplayUpdateChFlag(U8 disAB)
     else
     {
         if(disAB == 0)
-        {//显示在操作界面
+        {//显示在操作界�?
             posY = 29;
         }
         else
@@ -204,7 +204,7 @@ extern void DisplayUpdateChFlag(U8 disAB)
         LCD_DisplayPicture(posY,46,ICON_DTXPWR_SIZEX,ICON_DTXPWR_SIZEY,iconPowerH,0);
     }
     
-    /*显示宽窄带标志*/
+    /*显示宽窄带标�?*/
     if(g_ChannelVfoInfo.chVfoInfo[disAB].wideNarrow)
     {
         LCD_DisplayPicture(posY,65,ICON_NARROW_SIZEX,ICON_NARROW_SIZEY,iconNarrow,LCD_DIS_NORMAL);
@@ -220,7 +220,7 @@ extern void DisplayUpdateChFlag(U8 disAB)
         LCD_ClearArea(posY,85,ICON_QT_SIZEX,ICON_QT_SIZEY);
         LCD_DisplayPicture(posY,85,ICON_AM_SIZEX,ICON_AM_SIZEY,iconAM,LCD_DIS_NORMAL);
         
-        //AM模式下 亚音频 跳频 倒频均无效
+        //AM模式�? 亚音�? 跳�?? 倒�?�均无效
         LCD_ClearArea(posY,55,ICON_ADDSUB_SIZEX,ICON_ADDSUB_SIZEY);
         return;
     }
@@ -236,7 +236,7 @@ extern void DisplayUpdateChFlag(U8 disAB)
         }
     }
 
-    /*显示亚音频类型*/
+    /*显示亚音频类�?*/
     if(g_rfState == RF_RX)
     {
         ctsType = g_ChannelVfoInfo.chVfoInfo[disAB].rx->dcsCtsType;
@@ -273,7 +273,7 @@ extern void DisplayUpdateChFlag(U8 disAB)
 		LCD_ClearArea(posY,55,ICON_ADDSUB_SIZEX,ICON_ADDSUB_SIZEY);
 	}
 
-	/*显示跳频标志*/
+	/*显示跳�?�标�?*/
 	if(g_ChannelVfoInfo.chVfoInfo[disAB].fhssFlag)
 	{
 		LCD_DisplayPicture(posY,75,ICON_FHSS_SIZEX,ICON_FHSS_SIZEY,iconFhss,LCD_DIS_NORMAL);
@@ -381,7 +381,7 @@ extern void DisplayChannelMsg(U8 disMode,U8 disAB, U8 txOrRx)
         }
         else
         {
-            LCD_DisplayText(ypox,30,(U8 *)((g_radioInform.language == LANG_CN)?"   未命名   ":"   No Name  "),FONTSIZE_12x12,LCD_DIS_NORMAL);
+            LCD_DisplayText(ypox,30,(U8 *)"   No Name  ",FONTSIZE_12x12,LCD_DIS_NORMAL);
         }
 				
         if(txOrRx == DIS_TX)
@@ -399,7 +399,7 @@ extern void DisplayChannelMsg(U8 disMode,U8 disAB, U8 txOrRx)
     }
     else if(disMode == CH_DISCHNUM)
     {
-        //清除显示区域的数据
+        //清除显示区域的数�?
         memset(nameBuf, ' ', 12);
 		nameBuf[12] = '\0';
         LCD_DisplayText(ypox-2,30,(U8 *)nameBuf,FONTSIZE_16x16,LCD_DIS_NORMAL);
@@ -568,10 +568,10 @@ extern void DisplayHomePage(void)
 
     LCD_ClearFullBuf();
 
-    //显示状态栏
+    //显示状�?�栏
     DisplayStateBar();
 
-    //显示主界面
+    //显示主界�?
     DisplayRadioHome();
 }
 
@@ -831,7 +831,7 @@ extern void DisplaySingalFlag(U8 level,U8 UpdateF)
 }
 
 
-// 填充呼叫方名称
+// �?充呼�?方名�?
 U8 FillAniName(String *pDisName, String *pId)
 {
     U8 i,j;
@@ -926,13 +926,13 @@ extern void DisplayAniMsg(U8 *pCallerId, U8 *pCalledId)
 }
 
 /*********************************************************************
-* 函 数 名: ClearAniDisplay
-* 功能描述: 清除身份码显示信息
+* �? �? �?: ClearAniDisplay
+* 功能描述: 清除�?份码显示信息
 * 全局变量: 
-* 输入参数：
+* 输入参数�?
 * 输出参数:
-* 返　　回:
-* 说    明：
+* 返�??�?�?:
+* �?    明：
 ***********************************************************************/
 extern void ClearAniDisplay(void)
 {
@@ -940,12 +940,12 @@ extern void ClearAniDisplay(void)
     {
         if(dtmfInfo.flagDtmfMatch == 2 || (g_radioInform.dualRxFlag == 0))
         {
-            //清除A段显示区域
+            //清除A段显示区�?
             LCD_ClearArea(11, 0, 128,32);
         }
         else
         {
-            //清除B段显示区域
+            //清除B段显示区�?
             LCD_ClearArea(39, 0, 128,32);
         }
         dtmfInfo.flagDtmfMatch = 0;
@@ -977,11 +977,11 @@ extern void DisplaySoftVersion(void)
     len = sprintf((String *)&disbuf,"%sNRF",strModelType);  
     LCD_DisplayText(4,60-(len<<2),disbuf,FONTSIZE_16x16,LCD_DIS_NORMAL);  
   
-    //显示版本号
+    //显示版本�?
     sprintf((String *)&disbuf,"VER:%s","V0.22" );
     LCD_DisplayText(24,28,disbuf,FONTSIZE_16x16,LCD_DIS_NORMAL);  
 
-    //显示国家码和芯片ID
+    //显示国�?�码和芯片ID
     chipId = Rfic_ReadWord(0);
     sprintf((String *)&disbuf,"%s ID:%04X",modelTypeStr[g_sysRunPara.moduleType], chipId);
     LCD_DisplayText(44,12,disbuf,FONTSIZE_16x16,LCD_DIS_NORMAL);  
@@ -989,8 +989,7 @@ extern void DisplaySoftVersion(void)
     LCD_UpdateFullScreen();
     LcdBackLightSwitch(LED_ON);
 
-    //延时2S用于显示版本号
+    //延时2S用于显示版本�?
     DelaySysMs(2000);
 }
-
 

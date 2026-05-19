@@ -1,6 +1,7 @@
 #include "includes.h"
 
 volatile STR_BEEP beepDat;
+extern STR_MENUINFO g_menuInfo;
 
 const U8  BEEP_tone[9][3] = 
 {
@@ -8,7 +9,7 @@ const U8  BEEP_tone[9][3] =
     {F750HZ,   F450HZ,0  },    //FMUP
     {F450HZ,   F750HZ,0  },    //FMDOWN
     {F700HZ,   F590HZ,0  } ,   //FMSW1
-    {F1400HZ,  0,  F1400HZ},   //FMSW2开机提示音
+    {F1400HZ,  0,  F1400HZ},   //FMSW2�?机提示音
     {F590HZ,   F700HZ,0  },    //EXITMENU
     {F700HZ,   F930HZ,0  },    //FASTSW
     {F1500HZ,  0,  F1500HZ  }, //ERROR
@@ -16,7 +17,7 @@ const U8  BEEP_tone[9][3] =
 };
 const U8  BEEP_time[9][3]= 
 {
-    {    80, 35,0 },    //空
+    {    80, 35,0 },    //�?
     {    70, 70,0 },    //FMUP
     {    70, 70,0 },    //FMDOWN
     {    65, 50,0 },    //FMSW1
@@ -31,8 +32,14 @@ extern void BeepOut(ENUM_BEEPMODE beepmode)
 {
     U16 temp;
     
+    // Silenciar navegaci��n del Roger Test (M1=BEEP_FASTSW)
+    if (g_menuInfo.menuIndex == 3 && g_menuInfo.isSubMenu && beepmode != BEEP_FASTSW)
+    {
+        return;
+    }
+    
     if((alarmDat.alarmStates) || (g_radioInform.beepsSwitch == 0))
-    {//正在报警状态或者是按键音关闭
+    {//正在报�?�状态或者是按键音关�?
         return;
     }
         
