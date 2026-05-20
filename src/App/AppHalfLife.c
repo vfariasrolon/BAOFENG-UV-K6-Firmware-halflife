@@ -540,7 +540,7 @@ void UI_DisplayMasterPair(void)
     LCD_UpdateFullScreen();
 }
 
-// Unified Half-Life Custom Menu Renderer
+// Unified Half-Life Custom Menu Renderer with full dynamic vertical scrolling
 void UI_DisplayHlMenu(void)
 {
     SC5260_ClearArea(0, 0, 128, 64, 0);
@@ -549,11 +549,16 @@ void UI_DisplayHlMenu(void)
     LCD_DrawRectangle(0, 0, 128, 64, 0);
     LCD_DrawRectangle(1, 1, 126, 62, 0);
     
-    // Title header
-    LCD_DrawRectangle(3, 4, 120, 11, 1);
-    LCD_DisplayText(4, 16, (U8 *)"MENU HALF-LIFE", FONTSIZE_12x12, LCD_DIS_INVERT);
+    // Draw the vertical separating line at X=24
+    SC5260_ClearArea(2, 24, 1, 60, 1);
     
-    // Render the 4 items
+    // Draw vertical text "HALF" on the left column (X=9)
+    LCD_DisplayText(6, 9, (U8 *)"H", FONTSIZE_12x12, LCD_DIS_NORMAL);
+    LCD_DisplayText(18, 9, (U8 *)"A", FONTSIZE_12x12, LCD_DIS_NORMAL);
+    LCD_DisplayText(30, 9, (U8 *)"L", FONTSIZE_12x12, LCD_DIS_NORMAL);
+    LCD_DisplayText(42, 9, (U8 *)"F", FONTSIZE_12x12, LCD_DIS_NORMAL);
+    
+    // Render the items
     const char *menuItems[] = {
         "1. TELEMETRIA",
         "2. MDO MAESTRO",
@@ -561,21 +566,35 @@ void UI_DisplayHlMenu(void)
         "4. AGENDA DTMF"
     };
     
-    U8 idx;
-    U8 posY = 18;
-    for (idx = 0; idx < 4; idx++)
+    U8 start_idx = 0;
+    // Sliding window of 3 visible items
+    if (g_hlMenuIndex >= 3) {
+        start_idx = g_hlMenuIndex - 2;
+    } else if (g_hlMenuIndex >= 2) {
+        start_idx = 1;
+    } else {
+        start_idx = 0;
+    }
+    
+    U8 i;
+    for (i = 0; i < 3; i++)
     {
-        if (idx == g_hlMenuIndex)
+        U8 item_idx = start_idx + i;
+        if (item_idx >= 4) break; // Safeguard if list is smaller
+        
+        U8 drawY = 8 + (i * 18);
+        U8 isSelected = (item_idx == g_hlMenuIndex);
+        
+        if (isSelected)
         {
-            // Highlight the selected item with retro inverted box
-            LCD_DrawRectangle(posY, 4, 120, 10, 1);
-            LCD_DisplayText(posY + 1, 6, (U8 *)menuItems[idx], FONTSIZE_12x12, LCD_DIS_INVERT);
+            // Highlight the selected item with retro inverted box matching the stock menu!
+            LCD_DrawRectangle(drawY - 1, 26, 98, 14, 1);
+            LCD_DisplayText(drawY + 1, 28, (U8 *)menuItems[item_idx], FONTSIZE_12x12, LCD_DIS_INVERT);
         }
         else
         {
-            LCD_DisplayText(posY + 1, 6, (U8 *)menuItems[idx], FONTSIZE_12x12, LCD_DIS_NORMAL);
+            LCD_DisplayText(drawY + 1, 28, (U8 *)menuItems[item_idx], FONTSIZE_12x12, LCD_DIS_NORMAL);
         }
-        posY += 11;
     }
     
     LCD_UpdateFullScreen();
