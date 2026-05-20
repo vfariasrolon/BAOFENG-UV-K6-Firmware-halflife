@@ -58,6 +58,13 @@ void HL_ProcessIncomingOTAP(const char *dtmfString);
 void HL_Hook_OnPttPress(void);
 void HL_Hook_OnPttRelease(void);
 
+// Key Processing and Memory Protection
+void HL_SanitizeVfoPointers(void);
+void HL_KeyProcess_Dashboard(U8 keyEvent);
+void HL_KeyProcess_Menu(U8 keyEvent);
+void HL_KeyProcess_AniContacts(U8 keyEvent);
+
+
 extern U8 g_hlMenuIndex;
 extern U8 g_aniContactIndex;
 

@@ -50,6 +50,9 @@ extern void AppRunTask(void)
 {
     U8 keyEvent;
     
+    // Safety sanitization of active g_CurrentVfo pointers
+    HL_SanitizeVfoPointers();
+    
     // Half-Life Special modes loop execution
     if (g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN)
     {
@@ -74,13 +77,13 @@ extern void AppRunTask(void)
            if(g_keyScan.keyEvent != KEYID_NONE)
            {
                keyEvent = Key_GetRealEvent();
-
+ 
                if(alarmDat.alarmStates)
                {
                    if(keyEvent == KEYID_SIDEKEY1 || keyEvent == KEYID_SIDEKEY2 || keyEvent == KEYID_SIDEKEYL1)
                    {
                        keyEvent = Sidekey_GetRemapEvent(keyEvent);
-
+ 
                        if(keyEvent == KEYID_SOS)
                        {
                            AlarmFuncSwitch(OFF);
@@ -98,98 +101,13 @@ extern void AppRunTask(void)
                        MasterPairTask();
                        break;
                    case MODE_DASHBOARD:
-                       if (keyEvent == KEYID_EXIT)
-                       {
-                           g_sysRunPara.sysRunMode = MODE_HL_MENU;
-                           BeepOut(BEEP_EXITMENU);
-                           extern void UI_DisplayHlMenu(void);
-                           UI_DisplayHlMenu();
-                       }
-                       else
-                       {
-                           UI_DisplayDashboard();
-                       }
+                       HL_KeyProcess_Dashboard(keyEvent);
                        break;
                    case MODE_HL_MENU:
-                       if (keyEvent == KEYID_EXIT)
-                       {
-                           g_sysRunPara.sysRunMode = MODE_MAIN;
-                           BeepOut(BEEP_EXITMENU);
-                           DisplayHomePage();
-                       }
-                       else if (keyEvent == KEYID_UP)
-                       {
-                           extern U8 g_hlMenuIndex;
-                           if (g_hlMenuIndex > 0) g_hlMenuIndex--;
-                           else g_hlMenuIndex = 3;
-                           BeepOut(BEEP_FASTSW);
-                           extern void UI_DisplayHlMenu(void);
-                           UI_DisplayHlMenu();
-                       }
-                       else if (keyEvent == KEYID_DOWN)
-                       {
-                           extern U8 g_hlMenuIndex;
-                           if (g_hlMenuIndex < 3) g_hlMenuIndex++;
-                           else g_hlMenuIndex = 0;
-                           BeepOut(BEEP_FASTSW);
-                           extern void UI_DisplayHlMenu(void);
-                           UI_DisplayHlMenu();
-                       }
-                       else if (keyEvent == KEYID_MENU)
-                       {
-                           extern U8 g_hlMenuIndex;
-                           BeepOut(BEEP_FASTSW);
-                           if (g_hlMenuIndex == 0)
-                           {
-                               g_sysRunPara.sysRunMode = MODE_DASHBOARD;
-                               UI_DisplayDashboard();
-                           }
-                           else if (g_hlMenuIndex == 1)
-                           {
-                               g_sysRunPara.sysRunMode = MODE_MASTER_PAIR;
-                               MasterPairInit();
-                           }
-                           else if (g_hlMenuIndex == 2)
-                           {
-                               g_sysRunPara.sysRunMode = MODE_SLAVE_LISTEN;
-                               UI_DisplaySlaveListen();
-                           }
-                           else if (g_hlMenuIndex == 3)
-                           {
-                               g_sysRunPara.sysRunMode = MODE_DTMF_ANI;
-                               extern U8 g_aniContactIndex;
-                               g_aniContactIndex = 0;
-                               extern void UI_DisplayAniContacts(void);
-                               UI_DisplayAniContacts();
-                           }
-                       }
+                       HL_KeyProcess_Menu(keyEvent);
                        break;
                    case MODE_DTMF_ANI:
-                       if (keyEvent == KEYID_EXIT)
-                       {
-                           g_sysRunPara.sysRunMode = MODE_HL_MENU;
-                           BeepOut(BEEP_EXITMENU);
-                           extern void UI_DisplayHlMenu(void);
-                           UI_DisplayHlMenu();
-                       }
-                       else if (keyEvent == KEYID_UP)
-                       {
-                           extern U8 g_aniContactIndex;
-                           if (g_aniContactIndex > 0) g_aniContactIndex--;
-                           else g_aniContactIndex = 19;
-                           BeepOut(BEEP_FASTSW);
-                           extern void UI_DisplayAniContacts(void);
-                           UI_DisplayAniContacts();
-                       }
-                       else if (keyEvent == KEYID_DOWN)
-                       {
-                           extern U8 g_aniContactIndex;
-                           if (g_aniContactIndex < 19) g_aniContactIndex++;
-                           else g_aniContactIndex = 0;
-                           BeepOut(BEEP_FASTSW);
-                           extern void UI_DisplayAniContacts(void);
-                           UI_DisplayAniContacts();
-                       }
+                       HL_KeyProcess_AniContacts(keyEvent);
                        break;
                    case MODE_MENU:
                        if (keyEvent == KEYID_SCAN)

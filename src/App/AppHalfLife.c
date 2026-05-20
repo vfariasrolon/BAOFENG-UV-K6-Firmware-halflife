@@ -717,7 +717,7 @@ void UI_DisplayAniContacts(void)
     char cleanOwnId[6];
     memset(cleanOwnId, 0, sizeof(cleanOwnId));
     U8 i;
-    for (i = 0; i < 4 && g_dtmfStore.machineId[i] != ' ' && g_dtmfStore.machineId[i] != 0xFF; i++)
+    for (i = 0; i < 4 && g_dtmfStore.machineId[i] != '\0' && g_dtmfStore.machineId[i] != 0xFF; i++)
     {
         cleanOwnId[i] = g_dtmfStore.machineId[i];
     }
@@ -738,7 +738,7 @@ void UI_DisplayAniContacts(void)
         // Clean name
         char cleanName[12];
         memset(cleanName, 0, sizeof(cleanName));
-        for (i = 0; i < 10 && c->name[i] != ' ' && c->name[i] != 0xFF; i++)
+        for (i = 0; i < 10 && c->name[i] != '\0' && c->name[i] != 0xFF; i++)
         {
             cleanName[i] = c->name[i];
         }
@@ -746,12 +746,12 @@ void UI_DisplayAniContacts(void)
         // Clean ID
         char cleanId[6];
         memset(cleanId, 0, sizeof(cleanId));
-        for (i = 0; i < 4 && c->id[i] != ' ' && c->id[i] != 0xFF; i++)
+        for (i = 0; i < 4 && c->id[i] != '\0' && c->id[i] != 0xFF; i++)
         {
             cleanId[i] = c->id[i];
         }
         
-        if (cleanName[0] == ' ' || cleanName[0] == ' ')
+        if (cleanName[0] == '\0' || cleanName[0] == ' ')
         {
             sprintf(lineBuf, "%02d. [VACIO]", contactIdx + 1);
         }
@@ -948,3 +948,107 @@ extern void HL_Hook_OnPttRelease(void)
         HL_TxVrfrModeA(1); // CLOSE
     }
 }
+
+void HL_SanitizeVfoPointers(void)
+{
+    if (g_CurrentVfo)
+    {
+        if (g_CurrentVfo->rx == NULL || (U32)g_CurrentVfo->rx < 0x20000000 || (U32)g_CurrentVfo->rx > 0x20006000)
+        {
+            g_CurrentVfo->rx = &g_CurrentVfo->freqRx;
+        }
+        if (g_CurrentVfo->tx == NULL || (U32)g_CurrentVfo->tx < 0x20000000 || (U32)g_CurrentVfo->tx > 0x20006000)
+        {
+            g_CurrentVfo->tx = &g_CurrentVfo->freqTx;
+        }
+    }
+}
+
+void HL_KeyProcess_Dashboard(U8 keyEvent)
+{
+    if (keyEvent == KEYID_EXIT)
+    {
+        g_sysRunPara.sysRunMode = MODE_HL_MENU;
+        BeepOut(BEEP_EXITMENU);
+        UI_DisplayHlMenu();
+    }
+    else
+    {
+        UI_DisplayDashboard();
+    }
+}
+
+void HL_KeyProcess_Menu(U8 keyEvent)
+{
+    if (keyEvent == KEYID_EXIT)
+    {
+        g_sysRunPara.sysRunMode = MODE_MAIN;
+        BeepOut(BEEP_EXITMENU);
+        extern void DisplayHomePage(void);
+        DisplayHomePage();
+    }
+    else if (keyEvent == KEYID_UP)
+    {
+        if (g_hlMenuIndex > 0) g_hlMenuIndex--;
+        else g_hlMenuIndex = 3;
+        BeepOut(BEEP_FASTSW);
+        UI_DisplayHlMenu();
+    }
+    else if (keyEvent == KEYID_DOWN)
+    {
+        if (g_hlMenuIndex < 3) g_hlMenuIndex++;
+        else g_hlMenuIndex = 0;
+        BeepOut(BEEP_FASTSW);
+        UI_DisplayHlMenu();
+    }
+    else if (keyEvent == KEYID_MENU)
+    {
+        BeepOut(BEEP_FASTSW);
+        if (g_hlMenuIndex == 0)
+        {
+            g_sysRunPara.sysRunMode = MODE_DASHBOARD;
+            UI_DisplayDashboard();
+        }
+        else if (g_hlMenuIndex == 1)
+        {
+            g_sysRunPara.sysRunMode = MODE_MASTER_PAIR;
+            MasterPairInit();
+        }
+        else if (g_hlMenuIndex == 2)
+        {
+            g_sysRunPara.sysRunMode = MODE_SLAVE_LISTEN;
+            UI_DisplaySlaveListen();
+        }
+        else if (g_hlMenuIndex == 3)
+        {
+            g_sysRunPara.sysRunMode = MODE_DTMF_ANI;
+            g_aniContactIndex = 0;
+            UI_DisplayAniContacts();
+        }
+    }
+}
+
+void HL_KeyProcess_AniContacts(U8 keyEvent)
+{
+    if (keyEvent == KEYID_EXIT)
+    {
+        g_sysRunPara.sysRunMode = MODE_HL_MENU;
+        BeepOut(BEEP_EXITMENU);
+        UI_DisplayHlMenu();
+    }
+    else if (keyEvent == KEYID_UP)
+    {
+        if (g_aniContactIndex > 0) g_aniContactIndex--;
+        else g_aniContactIndex = 19;
+        BeepOut(BEEP_FASTSW);
+        UI_DisplayAniContacts();
+    }
+    else if (keyEvent == KEYID_DOWN)
+    {
+        if (g_aniContactIndex < 19) g_aniContactIndex++;
+        else g_aniContactIndex = 0;
+        BeepOut(BEEP_FASTSW);
+        UI_DisplayAniContacts();
+    }
+}
+
