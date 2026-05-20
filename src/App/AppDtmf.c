@@ -350,6 +350,8 @@ extern void DtmfSendTask(void)
             default:
                 dtmfInfo.state = DTMF_OVER;
                 dtmfInfo.sendFlag = 0;
+                // Notify Half-Life that DTMF order is complete (triggers master freq jump for VRFR A)
+                HL_NotifyDtmfComplete();
                 break;
         }
     }

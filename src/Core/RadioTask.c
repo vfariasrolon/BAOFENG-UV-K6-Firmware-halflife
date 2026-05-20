@@ -394,10 +394,7 @@ extern void RF_TxTask(void)
             
             if (HL_GetMode() == MODE_DASHBOARD)
             {
-                HL_Hook_OnPttPress();
-                g_sysRunPara.rfTxFlag.totTime = g_radioInform.totLevel*150;
-                g_rfTxState = WAIT_PTT_RELEASE;
-                break;
+                HL_Hook_OnPttPress(); // Queue VRFR(A) DTMF order - executes async, does not block
             }
             
             g_sysRunPara.rfTxFlag.totTime = g_radioInform.totLevel*150;

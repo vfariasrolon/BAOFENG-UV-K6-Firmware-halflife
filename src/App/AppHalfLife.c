@@ -20,8 +20,9 @@ static U32 s_jumpInactivityTimer = 0;
 
 // VRFR (A) Pseudorandom Frequency Hopping
 static U32 s_xorshiftState = 0;
-static U32 s_pendingTacticalFreq = 0;   // Freq chosen, waiting for DTMF_OVER to jump master
+static U32 s_pendingTacticalFreq = 0;   // Freq chosen, waiting for DTMF to finish to jump master
 static Boolean s_masterJumpPending = FALSE;
+static Boolean s_dtmfOrderComplete = FALSE;  // Set by DtmfSendTask when DTMF_OVER reached
 
 // Xorshift32 PRNG — fast, small, no division, ideal for Cortex-M0
 static U32 VRFR_Xorshift32(void)
@@ -396,10 +397,11 @@ void BackgroundTelemetryTask(void)
     HL_BackgroundInactivityTask();
 
     // VRFR (A): Execute master frequency jump AFTER DTMF order has finished transmitting
-    // This ensures the order was fully broadcast on the original channel before jumping
-    if (s_masterJumpPending && dtmfInfo.state == DTMF_OVER)
+    // Triggered by explicit flag set in HL_NotifyDtmfComplete(), called from DtmfSendTask
+    if (s_masterJumpPending && s_dtmfOrderComplete)
     {
-        s_masterJumpPending = FALSE;
+        s_masterJumpPending   = FALSE;
+        s_dtmfOrderComplete   = FALSE;
 
         // Save original state if not already jumped
         if (!s_isCurrentlyJumped)
@@ -1162,4 +1164,14 @@ U8 HL_GetMode(void)
         g_sysRunPara.sysRunMode = 0;
     }
     return g_sysRunPara.sysRunMode;
+}
+
+void HL_NotifyDtmfComplete(void)
+{
+    // Called by DtmfSendTask the moment a DTMF sequence finishes.
+    // Signals BackgroundTelemetryTask to execute the master frequency jump.
+    if (s_masterJumpPending)
+    {
+        s_dtmfOrderComplete = TRUE;
+    }
 }
