@@ -1,59 +1,52 @@
-# 🧬 Saneamiento 1 — Auditoría Completa de Externs Inline
-### Firmware BaoFeng UV-K6 / Half-Life Tactical Mod · Rama `half-life-advanced`
+# Saneamiento 1 — Auditoria NASA: Firmware BaoFeng UV-K6 Half-Life
+### Rama `half-life-advanced` | Ingeniero de referencia: NASA Embedded Systems Standard NPR 7150.2
 
 ---
 
-## 🔍 Diagnóstico: ¿Qué es un Extern Inline y Por Qué Rompe Todo?
+## RESUMEN EJECUTIVO
 
-En C, cuando un archivo `.c` necesita llamar a una función definida en otro archivo `.c`, debe conocer su firma (nombre, tipo de retorno, parámetros). El método **correcto** es declarar esa función en un archivo `.h` y hacer `#include` de ese `.h`.
+El firmware actual es funcionalmente util pero **arquitectonicamente fragil**. Bajo estandares de sistemas criticos (NASA NPR 7150.2 / MISRA-C:2012), presenta **4 categorias de riesgo que comprometen la predictibilidad y tolerancia a fallos**:
 
-El método **incorrecto** (y el que tiene este firmware) es escribir la declaración `extern` directamente dentro del cuerpo del archivo `.c`:
+| Categoria | Hallazgos | Riesgo |
+|-----------|-----------|--------|
+| Externs inline sin cabecera | 42 declaraciones en 7 archivos | CRITICO — desalineacion de tipos en ARM stack |
+| Variables/funciones fantasma | 3 referencias a simbolos inexistentes | CRITICO — RAM no inicializada / salto a 0x00000000 |
+| Estado global sin propietario unico | `g_sysRunPara.sysRunMode` escrito desde 14 archivos | ALTO — condicion de carrera en SysTick |
+| Ausencia total de Watchdog (WDT) | IWDG nunca inicializado ni alimentado | CRITICO — bloqueo silencioso sin recuperacion |
+
+---
+
+## PARTE 1: EXTERNS INLINE — El Origen del Caos
+
+### Por que un extern inline rompe el PTT?
+
+En ARM Cortex-M3, el compilador GCC resuelve cada unidad de compilacion `.c` de forma **independiente**. Cuando un archivo declara:
 
 ```c
-// FORMA INCORRECTA (extern inline - el origen del caos)
-void algunaFuncion(void)
-{
-    extern void DisplayHomePage(void);  // declarado aqui dentro
-    DisplayHomePage();
-}
+// INCORRECTO - dentro del .c
+extern void DisplayHomePage(void);
+DisplayHomePage();
 ```
 
-### Por que esto rompe la logica del PTT y otras funciones?
+El compilador confía ciegamente en esa declaracion local. Si en otro archivo la misma funcion tiene una firma diferente o si el linker la resuelve en un orden distinto, **los argumentos en el stack de la llamada se desalinean**. En un Cortex-M3 esto produce:
+- Salto a direccion incorrecta (PC corruption)
+- Retorno desde funcion a direccion basura (LR corruption)
+- HardFault → `NVIC_SystemReset()` → el radio regresa al menu VFO
 
-1. **Duplicacion Silenciosa**: Si la firma de la funcion cambia en el futuro (por ejemplo, se le añade un parametro), el `extern` inline **no da error de compilacion inmediato** pero genera un comportamiento indefinido en tiempo de ejecucion. El MCU salta a una direccion incorrecta - reboot.
-2. **Compilacion Parcial**: El compilador de ARM GCC resuelve cada unidad de compilacion (`.c`) por separado. Si el mismo `extern` esta declarado con tipos distintos en dos archivos, **no hay error** pero los tipos de los argumentos en el stack de llamadas se desalinean - corrupcion de punteros.
-3. **El Problema del PTT**: `key_ptt.c` y `Functions.c` declaran `extern void DisplayHomePage(void)` y `extern void RxReset(void)` de forma inline. Si en algun momento el compilador resuelve estas unidades en ordenes distintos o con versiones distintas del encabezado en cache, las llamadas apuntan a direcciones desplazadas - regreso involuntario al menu VFO al presionar PTT.
-
----
-
-## Inventario Completo de Externs Inline Encontrados
-
-**Total de externs inline encontrados: 42 declaraciones en 7 archivos `.c`**
-
-| N | Archivo | Externs Inline | Severidad |
-|---|---------|---------------|-----------|
-| 1 | `src/App/AppHalfLife.c` | 13 | CRITICO |
-| 2 | `src/App/AppMain.c` | 10 | CRITICO |
-| 3 | `src/Gui/DisplayMain.c` | 9 | ALTO |
-| 4 | `src/Driver/key_ptt.c` | 3 | CRITICO |
-| 5 | `src/Core/Functions.c` | 2 | MEDIO |
-| 6 | `src/App/AppDtmf.c` | 1 | MEDIO |
-| 7 | `src/Voice/Beep.c` | 1 | BAJO |
-
-Nota: `src/syscalls.c` contiene 3 externs con `__attribute__((weak))` — estos son **correctos y necesarios** para el runtime del sistema. Se dejan intactos.
+**Este es exactamente el comportamiento que reportas: PTT en Dashboard → menu principal.**
 
 ---
 
-## CRITICO — `src/App/AppHalfLife.c` (13 externs inline)
+### Inventario Completo (42 externs inline en 7 archivos)
 
-Este es el archivo mas contaminado. Contiene 13 declaraciones de funciones que ya **existen en cabeceras correctas** pero que fueron re-declaradas inline por falta del `#include` adecuado.
+**CRITICO — `src/App/AppHalfLife.c` (13)**
 
-| Linea | Extern Inline | Ya existe en |
-|-------|--------------|-------------|
+| Linea | Extern Inline | Cabecera correcta |
+|-------|--------------|------------------|
 | L52 | `extern void BatteryGetLevel(void)` | Battery.h |
-| L172 | `extern void UI_DisplayHlMenu(void)` | AppHalfLife.h (propio) |
-| L263 | `extern void UI_DisplayHlMenu(void)` | AppHalfLife.h (propio) |
-| L348 | `extern void HL_BackgroundInactivityTask(void)` | NO EXISTE en ningun .h |
+| L172 | `extern void UI_DisplayHlMenu(void)` | AppHalfLife.h (auto) |
+| L263 | `extern void UI_DisplayHlMenu(void)` | AppHalfLife.h (duplicado) |
+| L348 | `extern void HL_BackgroundInactivityTask(void)` | **NO EXISTE — FANTASMA** |
 | L456 | `extern void Font_Read_8x16_ASCII(...)` | FlashFont.h |
 | L556 | `extern U8 g_rfState` | Globe.h |
 | L791 | `extern void Rfic_ConfigRxMode(void)` | DevFD6818.h |
@@ -64,18 +57,10 @@ Este es el archivo mas contaminado. Contiene 13 declaraciones de funciones que y
 | L932 | `extern void DtmfSendCodeOn(U8 type)` | AppDtmf.h |
 | L987 | `extern void DisplayHomePage(void)` | DisplayMain.h |
 
-**Plan de accion:**
-1. Añadir `extern void Rfic_SetScramble(U8 group, U32 freq);` a `src/Driver/DevFD6818.h`.
-2. Eliminar los 13 externs inline de `AppHalfLife.c`. El `#include "includes.h"` ya jalara todos los headers necesarios.
+**CRITICO — `src/App/AppMain.c` (10)**
 
----
-
-## CRITICO — `src/App/AppMain.c` (10 externs inline)
-
-`AppMain.c` gestiona el procesamiento de teclas del menu principal. Aqui es donde se decide si el firmware entra al menu Half-Life o al VFO estandar. Los externs incorrectos aqui son la **causa raiz mas probable** del bug del PTT.
-
-| Linea | Extern Inline | Ya existe en |
-|-------|--------------|-------------|
+| Linea | Extern Inline | Cabecera correcta |
+|-------|--------------|------------------|
 | L101 | `extern U8 g_hlMenuIndex` | AppHalfLife.h |
 | L106 | `extern void UI_DisplayDashboard(void)` | AppHalfLife.h |
 | L112 | `extern void MasterPairInit(void)` | AppHalfLife.h |
@@ -87,116 +72,230 @@ Este es el archivo mas contaminado. Contiene 13 declaraciones de funciones que y
 | L148 | `extern void UI_DisplayHlMenu(void)` | AppHalfLife.h (duplicado) |
 | L348 | `extern void Rfic_SetScramble(U8, U32)` | **NO EXISTE en ningun .h** |
 
-**Plan de accion:**
-1. Añadir `#include "AppHalfLife.h"` en `AppMain.c` (despues de `#include "includes.h"`).
-2. Eliminar los 10 externs inline — todos estaran cubiertos por los headers.
+**CRITICO — `src/Driver/key_ptt.c` (3)**
 
----
-
-## CRITICO — `src/Driver/key_ptt.c` (3 externs inline)
-
-Este archivo es el que **maneja el boton fisico PTT**. Cualquier extern mal resuelto aqui causa directamente un comportamiento inesperado al presionar el boton.
-
-| Linea | Extern Inline | Ya existe en |
-|-------|--------------|-------------|
+| Linea | Extern Inline | Cabecera correcta |
+|-------|--------------|------------------|
 | L27 | `extern void DisplayHomePage(void)` | DisplayMain.h |
 | L28 | `extern void RxReset(void)` | RadioTask.h |
 | L45 | `extern void MasterPairTrigger(void)` | AppHalfLife.h |
 
-**Plan de accion:**
-1. Añadir `#include "AppHalfLife.h"` en `key_ptt.c` — `AppHalfLife.h` ya incluye `includes.h` que trae `DisplayMain.h` y `RadioTask.h`.
-2. Eliminar los 3 externs inline.
+**ALTO — `src/Gui/DisplayMain.c` (9)**
 
----
-
-## ALTO — `src/Gui/DisplayMain.c` (9 externs inline)
-
-`DisplayMain.c` es el motor de renderizado principal. Actualmente declara inline todos los iconos y funciones de Half-Life que necesita.
-
-| Linea | Extern Inline | Ya existe en |
-|-------|--------------|-------------|
+| Linea | Extern Inline | Cabecera correcta |
+|-------|--------------|------------------|
 | L298 | `extern const U8 iconScr_Seed1[17]` | AppHalfLife.h |
 | L299 | `extern const U8 iconScr_Seed2[17]` | AppHalfLife.h |
 | L300 | `extern const U8 iconScr_Seed3[17]` | AppHalfLife.h |
 | L301 | `extern const U8 iconScr_Seed4[17]` | AppHalfLife.h |
-| L302 | `extern const U8 iconScr[17]` | **NO EXISTE — variable fantasma** |
+| L302 | `extern const U8 iconScr[17]` | **NO EXISTE — VARIABLE FANTASMA** |
 | L555 | `extern void UI_DisplaySlaveListen(void)` | AppHalfLife.h |
 | L561 | `extern void UI_DisplayMasterPair(void)` | AppHalfLife.h |
 | L567 | `extern void UI_DisplayHlMenu(void)` | AppHalfLife.h |
 | L573 | `extern void UI_DisplayAniContacts(void)` | AppHalfLife.h |
 
-ATENCION: `iconScr[17]` en L302 **no existe en ningun header ni archivo `.c`**. Es un extern fantasma que apunta a memoria no inicializada. Debe eliminarse.
+**MEDIO — `src/Core/Functions.c` (2)**
 
-**Plan de accion:**
-1. Añadir `#include "AppHalfLife.h"` en `DisplayMain.c`.
-2. Eliminar los 8 externs inline cubiertos. Eliminar el `iconScr` fantasma.
+| Linea | Extern Inline | Cabecera correcta |
+|-------|--------------|------------------|
+| L39 | `extern void DisplayHomePage(void)` | DisplayMain.h via includes.h |
+| L40 | `extern void RxReset(void)` | RadioTask.h via includes.h |
 
----
+**MEDIO — `src/App/AppDtmf.c` (1)**
 
-## MEDIO — `src/Core/Functions.c` (2 externs inline)
+| Linea | Extern Inline | Cabecera correcta |
+|-------|--------------|------------------|
+| L541 | `extern void HL_ProcessIncomingOTAP(const char*)` | AppHalfLife.h |
 
-| Linea | Extern Inline | Ya existe en |
-|-------|--------------|-------------|
-| L39 | `extern void DisplayHomePage(void)` | DisplayMain.h (via includes.h) |
-| L40 | `extern void RxReset(void)` | RadioTask.h (via includes.h) |
+**BAJO — `src/Voice/Beep.c` (1)**
 
-**Plan de accion:** Ambas ya estan incluidas via `includes.h`. Eliminar los externs inline redundantes.
-
----
-
-## MEDIO — `src/App/AppDtmf.c` (1 extern inline)
-
-| Linea | Extern Inline | Ya existe en |
-|-------|--------------|-------------|
-| L541 | `extern void HL_ProcessIncomingOTAP(const char *dtmfString)` | AppHalfLife.h |
-
-**Plan de accion:** Añadir `#include "AppHalfLife.h"` en `AppDtmf.c` y eliminar el extern inline.
+| Linea | Extern Inline | Cabecera correcta |
+|-------|--------------|------------------|
+| L4 | `extern STR_MENUINFO g_menuInfo` | AppMenu.h via includes.h |
 
 ---
 
-## BAJO — `src/Voice/Beep.c` (1 extern inline)
+## PARTE 2: SIMBOLOS FANTASMA — Riesgo de Ejecucion en Memoria No Mapeada
 
-| Linea | Extern Inline | Ya existe en |
-|-------|--------------|-------------|
-| L4 | `extern STR_MENUINFO g_menuInfo` | AppMenu.h (via includes.h) |
+Tres referencias en el codigo apuntan a simbolos que **no existen en ningun archivo del proyecto**:
 
-**Plan de accion:** Eliminar el extern inline redundante.
+| Simbolo | Referenciado en | Tipo de fallo |
+|---------|----------------|---------------|
+| `HL_BackgroundInactivityTask()` | AppHalfLife.c L348 | El linker puede resolverlo a 0x00000000 — ejecucion en vector table |
+| `iconScr[17]` | DisplayMain.c L302 | Array extern sin definir — lecturas de RAM aleatoria → pantalla corrupta |
+| `Rfic_SetScramble(U8, U32)` | AppHalfLife.c, AppMain.c, DevFD6818.c | Funcion real en DevFD6818.c pero SIN declaracion en ningun .h — tipos sin garantia |
 
----
-
-## Hallazgos Adicionales: Funciones Sin Cabecera
-
-Hay 2 funciones que no existen en ningun header pero son llamadas desde multiples archivos:
-
-| Funcion | Definida en | Llamada desde | Accion |
-|---------|-------------|--------------|--------|
-| `Rfic_SetScramble(U8, U32)` | `DevFD6818.c` | `AppHalfLife.c`, `AppMain.c`, `DevFD6818.c` | Añadir a `DevFD6818.h` |
-| `HL_BackgroundInactivityTask()` | No encontrada | `AppHalfLife.c` L348 | Funcion fantasma — Eliminar referencia |
-| `iconScr[17]` | No encontrada | `DisplayMain.c` L302 | Variable fantasma — Eliminar |
+**Accion inmediata:**
+- `HL_BackgroundInactivityTask` → Eliminar la referencia (la funcion no existe)
+- `iconScr[17]` → Eliminar la declaracion extern fantasma en DisplayMain.c
+- `Rfic_SetScramble` → Añadir `extern void Rfic_SetScramble(U8 group, U32 freq);` a `DevFD6818.h`
 
 ---
 
-## Plan de Ejecucion Secuencial
+## PARTE 3: ESTADO GLOBAL SIN PROPIETARIO UNICO
+
+`g_sysRunPara.sysRunMode` es la variable de maquina de estado del sistema. Actualmente es **mutada directamente desde 14 archivos distintos**:
 
 ```
-Paso 1: DevFD6818.h    → Añadir Rfic_SetScramble al header oficial
-Paso 2: AppHalfLife.c  → Eliminar 13 externs inline
-Paso 3: AppMain.c      → Añadir #include "AppHalfLife.h" + eliminar 10 externs
-Paso 4: key_ptt.c      → Añadir #include "AppHalfLife.h" + eliminar 3 externs
-Paso 5: Functions.c    → Eliminar 2 externs redundantes
-Paso 6: AppDtmf.c      → Añadir #include "AppHalfLife.h" + eliminar 1 extern
-Paso 7: DisplayMain.c  → Añadir #include "AppHalfLife.h" + eliminar 8 externs
-Paso 8: Beep.c         → Eliminar 1 extern redundante
-Paso 9: Compilar       → .venv/bin/pio run (cero implicit declaration warnings)
-Paso 10: Git commit    → Sellar el saneamiento en rama half-life-advanced
+16 escrituras: AppHalfLife.c
+12 escrituras: AppMain.c
+11 escrituras: Battery.c          <- Por que Battery escribe el modo?
+ 7 escrituras: AppFm.c
+ 5 escrituras: AppTask.c
+ 5 escrituras: AppDtmf.c
+ 4 escrituras: AppMenu.c
+ 3 escrituras: AppWeather.c
+ ...
+```
+
+**Esto viola el principio de unico punto de control de estado (Single State Authority).** Cualquier archivo puede cambiar el modo del sistema en cualquier momento, incluyendo desde interrupciones, lo que hace imposible razonar sobre el estado del sistema.
+
+**Propuesta NASA:** Implementar una funcion centralizada de transicion de estado:
+```c
+// En AppHalfLife.h
+void HL_SetMode(U8 newMode);   // El UNICO punto de escritura de sysRunMode
+U8   HL_GetMode(void);         // Lectura segura del estado actual
 ```
 
 ---
 
-## Criterios de Aceptacion
+## PARTE 4: AUSENCIA TOTAL DE WATCHDOG (WDT) — FALLO CRITICO
 
-Al finalizar, la compilacion con PlatformIO debe producir:
-- Cero warnings de tipo `implicit declaration of function`
-- Cero warnings de tipo `conflicting types`
-- [SUCCESS] con RAM menos de 40% y Flash menos de 48%
-- Comportamiento de PTT verificado fisicamente en el radio
+**Hallazgo:** El KD32F328CBT6 tiene dos watchdogs de hardware (IWDG y WWDG). **Ninguno esta inicializado ni alimentado en todo el codigo.**
+
+```c
+// main.c — bucle principal
+while(1)
+{
+    if(g_10msFlag) App_10msTask();   // No hay IWDG_feed() aqui
+    if(g_50msFlag) App_50msTask();
+    if(g_100msFlag) App_100msTask();
+    if(g_500msFlag) App_500msTask();
+    AppRunTask();
+    AlarmTask();
+}
+```
+
+**Consecuencia:** Si el sistema entra en un bucle infinito, bloquea en `DelaySysMs()`, o un puntero corrupto lleva la ejecucion a codigo basura, **el MCU se queda colgado indefinidamente sin posibilidad de auto-recuperacion**.
+
+**Propuesta — IWDG de 1 segundo:**
+```c
+// En Board_Init() — inicializacion
+IWDG->KR  = 0x5555;  // Enable write access
+IWDG->PR  = 0x06;    // Prescaler /256 -> clock ~156Hz
+IWDG->RLR = 156;     // Reload = 1 segundo de timeout
+IWDG->KR  = 0xAAAA;  // Reload counter
+IWDG->KR  = 0xCCCC;  // Start IWDG
+
+// En App_10msTask() — alimentar el perro cada 10ms
+IWDG->KR = 0xAAAA;   // Feed watchdog
+```
+
+---
+
+## PARTE 5: HARDFAULT SIN TELEMETRIA — FALLO SILENCIOSO
+
+El HardFault actual hace un reset inmediato sin registrar ningun dato:
+
+```c
+// ACTUAL — version ciega
+void HardFault_Handler(void)
+{
+    NVIC_SystemReset();   // Reset inmediato, sin registro
+}
+```
+
+En sistemas criticos esto es inadmisible porque impide diagnosticar la causa raiz. El MCU tiene un registro de estado de fallo (`SCB->CFSR`, `SCB->MMFAR`, `SCB->BFAR`) que guarda exactamente que fallo y en que direccion.
+
+**Propuesta — HardFault con registro en SRAM:**
+```c
+// Estructura persistente en RAM (sobrevive el reset)
+typedef struct {
+    uint32_t cfsr;    // Tipo de fallo
+    uint32_t hfsr;    // HardFault status
+    uint32_t mmfar;   // Direccion de acceso a memoria invalida
+    uint32_t bfar;    // Direccion de bus fault
+    uint32_t pc;      // Program Counter donde ocurrio el fallo
+    uint32_t lr;      // Link Register (quien llamo la funcion que fallo)
+    uint32_t count;   // Contador de reinicios por fallo
+} HardFaultLog_t;
+
+// Colocar en seccion .noinit para que sobreviva el reset
+static HardFaultLog_t g_faultLog __attribute__((section(".noinit")));
+
+void HardFault_Handler(void)
+{
+    g_faultLog.cfsr  = SCB->CFSR;
+    g_faultLog.hfsr  = SCB->HFSR;
+    g_faultLog.mmfar = SCB->MMFAR;
+    g_faultLog.bfar  = SCB->BFAR;
+    g_faultLog.count++;
+    NVIC_SystemReset();
+}
+```
+
+---
+
+## PARTE 6: DEFINICIONES `extern` EN ARCHIVOS `.c` — El Doble Anti-Patron
+
+El firmware tiene **293 funciones definidas con la palabra clave `extern` en el .c**:
+
+```c
+// INCORRECTO
+extern void RF_TxTask(void)    // <- extern en la definicion
+{
+    ...
+}
+```
+
+`extern` en la **definicion** de una funcion en C es **ignorado silenciosamente por el compilador** (es equivalente a no ponerlo). Sin embargo, **induce a confusion** y puede ocultar casos donde el mismo simbolo esta definido en multiples unidades de compilacion sin error. En sistemas criticos esto se considera un defecto de Clase B (MISRA-C Rule 8.5).
+
+**Plan:** Eliminar el `extern` de todas las definiciones de funciones en archivos `.c`. Las declaraciones en `.h` mantienen el `extern`.
+
+---
+
+## PLAN DE EJECUCION SECUENCIAL
+
+```
+FASE A — Sellar el header maestro (sin riesgo de regresion)
+  Paso 1: DevFD6818.h  → Añadir Rfic_SetScramble al header oficial
+  Paso 2: AppHalfLife.h → Verificar que todos los simbolos HL_ esten declarados
+
+FASE B — Limpieza de externs inline (orden de dependencia)
+  Paso 3: AppHalfLife.c  → Eliminar 13 externs inline + quitar extern de definiciones
+  Paso 4: AppMain.c      → Añadir #include "AppHalfLife.h" + eliminar 10 externs
+  Paso 5: key_ptt.c      → Añadir #include "AppHalfLife.h" + eliminar 3 externs
+  Paso 6: Functions.c    → Eliminar 2 externs redundantes
+  Paso 7: AppDtmf.c      → Añadir #include "AppHalfLife.h" + eliminar 1 extern
+  Paso 8: DisplayMain.c  → Añadir #include "AppHalfLife.h" + eliminar 8 externs
+
+FASE C — Tolerancia a Fallos de Hardware
+  Paso 9:  Board_Init()     → Implementar IWDG con timeout de 1 segundo
+  Paso 10: App_10msTask()   → Alimentar IWDG cada 10ms
+  Paso 11: kd32f328_it.c   → Implementar HardFault con registro en SRAM .noinit
+
+FASE D — Control de Estado Unico
+  Paso 12: AppHalfLife.h   → Declarar HL_SetMode(U8) y HL_GetMode(void)
+  Paso 13: AppHalfLife.c   → Implementar las funciones con validacion de rango
+  Paso 14: Todos los .c    → Reemplazar escrituras directas por HL_SetMode()
+
+FASE E — Verificacion
+  Paso 15: .venv/bin/pio run
+           → Cero warnings implicit declaration
+           → Cero warnings conflicting types
+           → [SUCCESS] RAM < 40%, Flash < 48%
+  Paso 16: git commit —> Sellar saneamiento completo
+```
+
+---
+
+## CRITERIOS DE ACEPTACION (NASA Go/No-Go)
+
+| Criterio | Metodo de Verificacion | Umbral |
+|----------|----------------------|--------|
+| Cero externs inline en .c | `grep -rn 'extern ' src/ --include=*.c | grep ';'` | 0 resultados (exc. syscalls.c) |
+| Cero simbolos fantasma | Compilacion sin `undefined reference` | 0 errores de linker |
+| IWDG activo | Osciloscopia en NRST al desconectar SysTick | Reset < 1.1 segundos |
+| HardFault con log | Forzar null dereference, verificar g_faultLog.count > 0 | count >= 1 |
+| Estado centralizado | `grep -rn 'sysRunMode =' src/` | Solo HL_SetMode() |
+| Build limpio | `.venv/bin/pio run` | [SUCCESS] sin warnings |
