@@ -79,6 +79,9 @@ int main(void)
     }
     g_keyScan.keyEvent = KEYID_NONE;
     
+    // NASA Standard Hardware Watchdog activation: delay until all slow startup tasks complete
+    Board_Watchdog_Init();
+    
     while(1)
     {
         //10ms运行一次

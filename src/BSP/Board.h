@@ -14,6 +14,7 @@ extern void uartSendChar( uint8_t ch );
 extern uint8_t UserADC_GetValOfBatt(void);
 extern uint8_t UserADC_GetValOfVox(void);
 extern void Board_Init(void);
+extern void Board_Watchdog_Init(void);
 
 
 #endif
