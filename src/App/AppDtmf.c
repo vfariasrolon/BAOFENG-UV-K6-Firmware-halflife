@@ -1,5 +1,6 @@
 #include "includes.h"
 #include "AppHalfLife.h"
+#include "KD32f328_iwdg.h"
 enum{ DTMF_ID_0, DTMF_ID_1, DTMF_ID_2, DTMF_ID_3, DTMF_ID_4, DTMF_ID_5, DTMF_ID_6, DTMF_ID_7, 
       DTMF_ID_8, DTMF_ID_9, DTMF_ID_A, DTMF_ID_B, DTMF_ID_C, DTMF_ID_D, DTMF_ID_STAR, DTMF_ID_POUND};
 
@@ -293,6 +294,7 @@ extern void DtmfSendTask(void)
 
     while(dtmfInfo.state)
     {
+        IWDG_ReloadCounter(); // NASA Standard: feed watchdog in blocking DTMF tx loop
         if(dtmfInfo.timeOut == 0)
         {
             switch(dtmfInfo.state)
