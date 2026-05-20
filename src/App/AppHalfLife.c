@@ -18,6 +18,53 @@ static U8 s_originalScramble = 0;
 static Boolean s_isCurrentlyJumped = FALSE;
 static U32 s_jumpInactivityTimer = 0;
 
+// VRFR (A) Pseudorandom Frequency Hopping
+static U32 s_xorshiftState = 0;
+static U32 s_pendingTacticalFreq = 0;   // Freq chosen, waiting for DTMF_OVER to jump master
+static Boolean s_masterJumpPending = FALSE;
+
+// Xorshift32 PRNG — fast, small, no division, ideal for Cortex-M0
+static U32 VRFR_Xorshift32(void)
+{
+    s_xorshiftState ^= s_xorshiftState << 13;
+    s_xorshiftState ^= s_xorshiftState >> 17;
+    s_xorshiftState ^= s_xorshiftState << 5;
+    return s_xorshiftState;
+}
+
+// Pick a random tactical frequency from 3 bands (in units of 100Hz, as used by BK4829)
+// Range 0 — VHF:          136.000 MHz to 174.000 MHz
+// Range 1 — UHF Standard: 400.000 MHz to 440.000 MHz
+// Range 2 — UHF Tactical: 455.000 MHz to 458.000 MHz
+static U32 VRFR_PickRandomFreq(void)
+{
+    U32 rng = VRFR_Xorshift32();
+    U8 band = rng % 3;   // 0, 1 or 2
+
+    // Step in 12.5 kHz steps = 125 units of 100Hz — keeps frequencies clean
+    switch (band)
+    {
+        case 0: // VHF 136.000 - 174.000 MHz  → 1,360,000 to 1,740,000 (units)
+        {
+            U32 range = (1740000 - 1360000) / 125; // = 3040 steps
+            U32 step  = (VRFR_Xorshift32() % range) * 125;
+            return 1360000 + step;
+        }
+        case 1: // UHF 400.000 - 440.000 MHz  → 4,000,000 to 4,400,000
+        {
+            U32 range = (4400000 - 4000000) / 125; // = 3200 steps
+            U32 step  = (VRFR_Xorshift32() % range) * 125;
+            return 4000000 + step;
+        }
+        default: // UHF Tactical 455.000 - 458.000 MHz → 4,550,000 to 4,580,000
+        {
+            U32 range = (4580000 - 4550000) / 125; // = 240 steps
+            U32 step  = (VRFR_Xorshift32() % range) * 125;
+            return 4550000 + step;
+        }
+    }
+}
+
 // Custom Procedural Bitmaps for Scrambler Seeds (17x7 pixels)
 const U8 iconScr_Seed1[17] = {
     0x7F, 0x41, 0x41, 0x41, 0x5D, 0x55, 0x55, 0x55, 0x5D, 0x55, 0x55, 0x55, 0x5D, 0x41, 0x41, 0x41, 0x7F
@@ -347,6 +394,37 @@ void BackgroundTelemetryTask(void)
 {
     extern void HL_BackgroundInactivityTask(void);
     HL_BackgroundInactivityTask();
+
+    // VRFR (A): Execute master frequency jump AFTER DTMF order has finished transmitting
+    // This ensures the order was fully broadcast on the original channel before jumping
+    if (s_masterJumpPending && dtmfInfo.state == DTMF_OVER)
+    {
+        s_masterJumpPending = FALSE;
+
+        // Save original state if not already jumped
+        if (!s_isCurrentlyJumped)
+        {
+            s_originalFreqRx  = g_CurrentVfo->freqRx.frequency;
+            s_originalFreqTx  = g_CurrentVfo->freqTx.frequency;
+            s_originalScramble = g_CurrentVfo->scarmble;
+            s_isCurrentlyJumped = TRUE;
+        }
+
+        // Apply the tactical frequency to the active VFO
+        g_CurrentVfo->freqRx.frequency = s_pendingTacticalFreq;
+        g_CurrentVfo->freqTx.frequency = s_pendingTacticalFreq;
+        g_CurrentVfo->scarmble = 0;
+
+        // Retune hardware to new tactical channel
+        extern void Rfic_ConfigRxMode(void);
+        Rfic_ConfigRxMode();
+
+        s_jumpInactivityTimer = 0;
+
+        // Update dashboard display
+        if (HL_GetMode() == MODE_DASHBOARD)
+            UI_DisplayDashboard();
+    }
 
     static U32 telemetryTimer = 0;
     telemetryTimer++;
@@ -885,50 +963,60 @@ void HL_ProcessIncomingOTAP(const char *dtmfString)
 
 void HL_TxVrfrModeA(U8 flagClose)
 {
-    // Seed value can be retrieved from g_dtmfStore.machineId or a fixed cellular ID
-    U8 seed = 9; // Default cell ID 09
-    
+    U8 seed = 9; // Cell ID 09 (default master)
+    U32 txFreq;
+
     memset(g_sysRunPara.txDtmfCode.code, 0xFF, 16);
-    
+
     // Digit 0: 'A' -> 10
     g_sysRunPara.txDtmfCode.code[0] = 10;
-    
+
     // Digit 1-2: Seed
     g_sysRunPara.txDtmfCode.code[1] = seed / 10;
     g_sysRunPara.txDtmfCode.code[2] = seed % 10;
-    
+
     if (flagClose)
     {
-        // Digits 3-8: Freq = 000000
+        // CLOSE command: freq = 000000, scramble = 00 → slaves & master return home
         U8 i;
         for (i = 3; i <= 8; i++)
-        {
             g_sysRunPara.txDtmfCode.code[i] = 0;
-        }
-        // Digits 9-10: Scramble = 00
-        g_sysRunPara.txDtmfCode.code[9] = 0;
+        g_sysRunPara.txDtmfCode.code[9]  = 0;
         g_sysRunPara.txDtmfCode.code[10] = 0;
     }
     else
     {
-        // Digits 3-8: Get current RX frequency in hundreds of Hz
-        U32 f = g_CurrentVfo->freqRx.frequency / 100;
+        // OPEN: seed Xorshift with SysTick hardware VAL register (free-running 24-bit counter)
+        // XOR'd with machineId for per-radio uniqueness at PTT press moment
+        s_xorshiftState = SysTick->VAL ^ ((U32)g_dtmfStore.machineId[0] << 24)
+                                       ^ ((U32)g_dtmfStore.machineId[1] << 16)
+                                       ^ ((U32)g_dtmfStore.machineId[2] << 8)
+                                       ^ (U32)g_dtmfStore.machineId[3];
+        if (s_xorshiftState == 0) s_xorshiftState = 0xDEADBEEF; // Xorshift must not be 0
+
+        // Pick random tactical frequency from 3 bands
+        txFreq = VRFR_PickRandomFreq();
+        s_pendingTacticalFreq = txFreq;  // Save so master can jump after DTMF
+        s_masterJumpPending   = TRUE;
+
+        // Encode frequency into DTMF digits 3-8 (in units of 100Hz)
+        U32 f = txFreq;
         U8 i;
         for (i = 8; i >= 3; i--)
         {
             g_sysRunPara.txDtmfCode.code[i] = f % 10;
             f /= 10;
         }
-        // Digits 9-10: Scrambler
-        U8 scramble = g_CurrentVfo->scarmble;
-        g_sysRunPara.txDtmfCode.code[9] = scramble / 10;
-        g_sysRunPara.txDtmfCode.code[10] = scramble % 10;
+        // Scramble stays at 00 for random hops (hardware scramble not needed)
+        g_sysRunPara.txDtmfCode.code[9]  = 0;
+        g_sysRunPara.txDtmfCode.code[10] = 0;
     }
-    
+
     // Digit 11: '#' -> 15
     g_sysRunPara.txDtmfCode.code[11] = 15;
-    g_sysRunPara.txDtmfCode.codeLen = 12;
-    // Send it synchronously!
+    g_sysRunPara.txDtmfCode.codeLen  = 12;
+
+    // Queue async DTMF — transmits on ORIGINAL channel, master jumps in BackgroundTelemetryTask
     extern void DtmfSendCodeOn(U8 type);
     DtmfSendCodeOn(DTMF_TYPEIN);
 }
