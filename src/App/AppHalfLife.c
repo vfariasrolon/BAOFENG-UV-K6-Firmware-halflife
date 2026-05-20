@@ -480,21 +480,21 @@ static void DrawHalfLifeBranding(void)
     // Draw rotated "H A L F" in white (inverted)
     U8 rotBuf[16];
     
-    // 'H' at Y = 8, X = 4
+    // 'H' at Y = 47, X = 4 (Top of the screen due to inverted Y page layout)
     GetRotatedChar8x16('H', rotBuf);
-    SC5260_DisplayArea(8, 4, 16, 8, rotBuf, 1);
+    SC5260_DisplayArea(47, 4, 16, 8, rotBuf, 1);
     
-    // 'A' at Y = 21, X = 4
+    // 'A' at Y = 34, X = 4
     GetRotatedChar8x16('A', rotBuf);
-    SC5260_DisplayArea(21, 4, 16, 8, rotBuf, 1);
-    
-    // 'L' at Y = 34, X = 4
-    GetRotatedChar8x16('L', rotBuf);
     SC5260_DisplayArea(34, 4, 16, 8, rotBuf, 1);
     
-    // 'F' at Y = 47, X = 4
+    // 'L' at Y = 21, X = 4
+    GetRotatedChar8x16('L', rotBuf);
+    SC5260_DisplayArea(21, 4, 16, 8, rotBuf, 1);
+    
+    // 'F' at Y = 8, X = 4 (Bottom of the screen due to inverted Y page layout)
     GetRotatedChar8x16('F', rotBuf);
-    SC5260_DisplayArea(47, 4, 16, 8, rotBuf, 1);
+    SC5260_DisplayArea(8, 4, 16, 8, rotBuf, 1);
 }
 
 void UI_DisplayDashboard(void)
