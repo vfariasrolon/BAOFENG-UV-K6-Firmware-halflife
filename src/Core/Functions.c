@@ -33,7 +33,6 @@ extern void ExitAllFunction(U8 flag)
     }
 
     if(g_sysRunPara.sysRunMode == MODE_HL_MENU ||
-       g_sysRunPara.sysRunMode == MODE_DASHBOARD ||
        g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
     {
         g_sysRunPara.sysRunMode = MODE_MAIN;

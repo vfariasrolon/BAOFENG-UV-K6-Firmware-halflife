@@ -552,8 +552,24 @@ void UI_DisplayDashboard(void)
         LCD_DisplayText(44, 45, (U8 *)"DETECTADOS", FONTSIZE_12x12, LCD_DIS_NORMAL);
     }
     
+    // Draw tactical alert overlay if transmitting in VRFR Mode A
+    extern U8 g_rfState;
+    if (g_rfState == 2)
+    {
+        SC5260_ClearArea(2, 26, 98, 44, 1); // clear content area (black background)
+        LCD_DrawRectangle(2, 26, 98, 44, 1); // white outline inside black block
+        
+        LCD_DisplayText(4, 30, (U8 *)"TRANSMITIENDO", FONTSIZE_12x12, LCD_DIS_INVERT);
+        LCD_DisplayText(20, 32, (U8 *)" ORDEN VRFR A", FONTSIZE_12x12, LCD_DIS_INVERT);
+        
+        char freqBuf[16];
+        sprintf(freqBuf, "%d.%03d MHz", (int)(g_CurrentVfo->freqRx.frequency / 100000), (int)((g_CurrentVfo->freqRx.frequency / 100) % 1000));
+        LCD_DisplayText(34, 32, (U8 *)freqBuf, FONTSIZE_12x12, LCD_DIS_INVERT);
+        
+        LCD_DisplayText(47, 30, (U8 *)" MICRO ACTIVO", FONTSIZE_12x12, LCD_DIS_INVERT);
+    }
     // Draw tactical alert overlay if temporarily jumped in VRFR Mode A
-    if (s_isCurrentlyJumped)
+    else if (s_isCurrentlyJumped)
     {
         SC5260_ClearArea(2, 26, 98, 44, 1); // clear content area (black background)
         LCD_DrawRectangle(2, 26, 98, 44, 1); // white outline inside black block
