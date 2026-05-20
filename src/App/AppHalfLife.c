@@ -791,7 +791,7 @@ void HL_RestoreOriginalChannel(void)
         extern void Rfic_ConfigRxMode(void);
         extern void Rfic_SetScramble(U8 group, U32 freq);
         Rfic_ConfigRxMode();
-        Rfic_SetScramble(g_CurrentVfo->scarmble, g_CurrentVfo->rx->frequency);
+        Rfic_SetScramble(g_CurrentVfo->scarmble, g_CurrentVfo->freqRx.frequency);
         
         BeepOut(BEEP_EXITMENU);
         
