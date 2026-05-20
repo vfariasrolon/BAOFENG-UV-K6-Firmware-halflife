@@ -882,7 +882,7 @@ void  Rfic_Init(void)
                                               
     //Set MIC Sensitivity
     //Rfic_WriteWord(0x7D,  0xE940 | 16);//bit[4:0]=MicSens
-    Rfic_WriteWord(0x7D,  0xE952);//bit[4:0]=MicSens
+    Rfic_WriteWord(0x7D,  0xE95F);//bit[4:0]=MicSens MAX=31
 
     //Set Volume 
     // bit[9:4]=音量数字增益    bit[3:0]=音量模拟增益
@@ -1255,12 +1255,8 @@ void Rfic_ConfigTxMode(void)
         Rfic_BandInitial(g_CurrentVfo->tx->frequency);
         CTS_DCS_SEND_Initial();
         
-        // Read MIC gain dynamically from menu (0-31), defaulting to 26 if uninitialized
-        gain = g_radioInform.remain0[0];
-        if (gain > 31) {
-            gain = 26;
-        }
-        Rfic_WriteWord(0x7d, 0xE940 | gain);
+        // NASA Standard: Force maximum MIC sensitivity (31 = 0x1F)
+        Rfic_WriteWord(0x7d, 0xE940 | 31);
         Rfic_SetScramble(g_CurrentVfo->scarmble, g_CurrentVfo->tx->frequency);
         Rfic_RxTxOnOffSetup(RFIC_TXON);
         Rfic_SetPA(Rfic_GetTxPAPara());
@@ -1274,11 +1270,10 @@ void Rfic_ConfigTxMode(void)
     Rfic_RxTxOnOffSetup(RFIC_IDLE);
     Rfic_BandInitial(g_CurrentVfo->tx->frequency);
     CTS_DCS_SEND_Initial();
-    gain = DEPTH_MIC_MODULATION % 32;
-    if (gain == 0) {
-        gain = 16; // Ganancia segura por defecto si es 0
-    }
-    Rfic_WriteWord(0x7d, 0xE940 | gain);
+    // NASA Standard: Force maximum MIC sensitivity (31 = 0x1F)
+    // DEPTH_MIC_MODULATION from factory config is often low and was capped at 32.
+    // The BK4829 register 0x7D bits[4:0] accept 0-31, 31 is max.
+    Rfic_WriteWord(0x7d, 0xE940 | 31);
     Rfic_SetScramble(g_CurrentVfo->scarmble,g_CurrentVfo->tx->frequency);
     Rfic_RxTxOnOffSetup(RFIC_TXON);
     Rfic_SetPA(Rfic_GetTxPAPara());
