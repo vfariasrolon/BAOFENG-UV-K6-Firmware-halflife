@@ -1,4 +1,5 @@
 #include "includes.h"
+#include "KD32f328_iwdg.h" 
 
 STR_MENUINFO  g_menuInfo;
 
@@ -39,6 +40,14 @@ extern U32 loadCtcssVal(U16 ctcss)
     return i;
 }
 
+
+void DelayWDT(uint16_t ms) {
+    for(uint16_t i = 0; i < ms; i++) {
+        DelayMs(1);
+        IWDG_ReloadCounter(); // Mantiene al perro dormido cada 1 milisegundo
+    }
+}
+
 extern void PlayRogerPreview(U8 val)
 {
     U8 rogerVol = g_radioInform.remain0[1];
@@ -52,34 +61,56 @@ extern void PlayRogerPreview(U8 val)
     Rfic_SetAfout(3);
     SpeakerSwitch(ON);
     
+    DelayWDT(10); // <--- Estabiliza el voltaje antes de sonar
+    
     switch (val)
     {
         case 1: // Preset 1: Classic Double Chirp
-            Rfic_SetToneFreq(100); // 1000 Hz
-            DelayMs(60);
-            Rfic_SetToneFreq(80);  // 800 Hz
-            DelayMs(60);
+            Rfic_SetToneFreq(100); 
+            DelayWDT(60);
+            Rfic_SetToneFreq(80);  
+            DelayWDT(60);
             break;
             
         case 2: // Preset 2: Sharp Single Beep
-            Rfic_SetToneFreq(120); // 1200 Hz
-            DelayMs(80);
+            Rfic_SetToneFreq(120); 
+            DelayWDT(80);
             break;
             
         case 3: // Preset 3: Triple Quiki
-            Rfic_SetToneFreq(120); // 1200 Hz
-            DelayMs(40);
-            Rfic_SetToneFreq(100); // 1000 Hz
-            DelayMs(40);
-            Rfic_SetToneFreq(120); // 1200 Hz
-            DelayMs(40);
+            Rfic_SetToneFreq(120); 
+            DelayWDT(40);
+            Rfic_SetToneFreq(100); 
+            DelayWDT(40);
+            Rfic_SetToneFreq(120); 
+            DelayWDT(40);
             break;
             
         case 4: // Preset 4: Laser Chirp
-            Rfic_SetToneFreq(150); // 1500 Hz
-            DelayMs(40);
-            Rfic_SetToneFreq(120); // 1200 Hz
-            DelayMs(40);
+            Rfic_SetToneFreq(150); 
+            DelayWDT(40);
+            Rfic_SetToneFreq(120); 
+            DelayWDT(40);
+            break;
+
+        case 5: // Preset 5: Clon Nextel (Triple Alerta Rápida)
+            Rfic_SetToneFreq(180); 
+            DelayWDT(35);
+            Rfic_SetToneFreq(0);   // Silencio
+            DelayWDT(25);
+            Rfic_SetToneFreq(180); 
+            DelayWDT(35);
+            Rfic_SetToneFreq(0);   // Silencio
+            DelayWDT(25);
+            Rfic_SetToneFreq(180); 
+            DelayWDT(45);
+            break;
+            
+        case 6: // Preset 6: "Moneda Retro" (Tipo Mario Bros Arcade)
+            Rfic_SetToneFreq(98);  
+            DelayWDT(40);
+            Rfic_SetToneFreq(132); 
+            DelayWDT(80);
             break;
             
         default:
@@ -110,7 +141,6 @@ extern void ApplyCalibrationCalibrationSPI(U8 index, U16 val)
             break;
         case S_KEYBEEP:
             g_radioInform.beepsSwitch = val;
-            Flash_SaveRadioImfosData();
             break;
     }
 }
@@ -136,7 +166,7 @@ extern void Menu_GetSubItemPara(U8 menuIndex)
             if (g_menuInfo.selectedItem > 255) g_menuInfo.selectedItem = 120;
             break;
         case S_TXTEST:
-            g_menuInfo.subMaxItem = 5;
+            g_menuInfo.subMaxItem = 7;
             g_menuInfo.selectedItem = g_radioInform.remain0[3];
             if (g_menuInfo.selectedItem > 4) g_menuInfo.selectedItem = 1;
             break;
@@ -202,8 +232,10 @@ extern void Menu_ExitMode(void)
     {
         return;
     }
+    
+    IWDG_ReloadCounter();
 
-    //保存设置的数�?
+    //保存设置的数�?
     Flash_SaveRadioImfosData();
     if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
     {
@@ -382,7 +414,7 @@ void FreqTypeIn(U8 input)
         g_menuInfo.inputVal = 0;
     }
 
-    //�?报数�?
+    //�?报数�?
     temp = g_inputbuf.buf[g_inputbuf.len-1] - '0';
     if(g_radioInform.voiceSw == 0)
 	{
@@ -423,7 +455,7 @@ void ChanlFreqTypeIn(U8 input)
         g_menuInfo.inputVal = 0;
     }
 
-    //�?报数�?
+    //�?报数�?
     temp = g_inputbuf.buf[g_inputbuf.len-1] - '0';
     if(g_radioInform.voiceSw == 0)
 	{
@@ -463,7 +495,7 @@ void ScanRangeTypeIn(U8 input)
         g_menuInfo.inputVal = 0;
     }
 
-    //�?报数�?
+    //�?报数�?
     temp = g_inputbuf.buf[g_inputbuf.len-1] - '0';
     if(g_radioInform.voiceSw == 0)
 	{
@@ -502,7 +534,7 @@ extern void SaveRadioFreq(U8 tx)
         freq = g_menuInfo.inputVal;
         
         if(CheckFreqInRange(freq) == TRUE)
-        {//判断频率�?否在范围�?
+        {//判断频率�?否在范围�?
             if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
             {
                 if(tx)
@@ -619,10 +651,10 @@ void OffectFrequency2Buf(U32 freq,U8 *dest,U8 len)
     String buf[9];
     U8 i;
     
-    sprintf(buf,"%07d",freq);
+    sprintf(buf,"%07lu",freq);
 
     for(i=0;i<len;i++)
-    {//将ASC�?�?为hex
+    {// ASCI hex
         dest[i] = buf[i] - 0x30;
     }
 }
@@ -660,7 +692,7 @@ extern void SaveChMemory(void)
             {
                 tempCh.decoderCode = searchFreqImofs.CtsResult;
                 tempCh.decoderCode &= 0X007FFFFF;
-                tempCh.decoderCode |= 0xA0000000; // 表示学习跳�??
+                tempCh.decoderCode |= 0xA0000000; // 表示学习跳�??
                 tempCh.chFlag3.Byte |= 0X01;//破码标志
             }
         }
@@ -708,13 +740,13 @@ extern void SaveChMemory(void)
                 VoiceBroadcastWithBeepLock(vo_Rxmemory,BEEP_FMDOWN);
             }
     
-            tempCh.chFlag3.Bit.b6 = g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].wideNarrow;//宽窄�?
+            tempCh.chFlag3.Bit.b6 = g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].wideNarrow;//宽窄�?
             tempCh.chFlag3.Bit.b0 = g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].vfoFlag.Bit.b0;
     		tempCh.txPower = g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].txPower;//发射功率
             tempCh.chFlag3.Bit.b3 = g_radioInform.txBusyLock;//繁忙锁定
-            tempCh.dtmfgroup = g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].dtmfgroup;//信令�?
+            tempCh.dtmfgroup = g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].dtmfgroup;//信令�?
     		tempCh.pttID = g_radioInform.pttIdMode;//PTT_ID
-    		tempCh.chFlag3.Bit.b2 = 1;//�?描添加默�?ON
+    		tempCh.chFlag3.Bit.b2 = 1;//�?描添加默�?ON
     		tempCh.chFlag3.Byte |= 0x02;
         }
     }
@@ -779,19 +811,19 @@ extern void SaveChDelete(void)
 
         if(g_ChannelVfoInfo.haveChannel == 0)
         {
-            //显示请等�?
+            //显示请等�?
             if(g_radioInform.language == LANG_CN)
             {
-                sprintf(disBuf,"%-*.*s\n\r",16,16,"请等�?...");
+                sprintf(disBuf,"%-*.*s",16,16,"请等...");
             }
             else
             {
-                sprintf(disBuf,"%-*.*s\n\r",16,16,"Wait...");
+                sprintf(disBuf,"%-*.*s",16,16,"Wait...");;
             }
             LCD_DisplayText(47, 0, (U8 *)disBuf, FONTSIZE_16x16,LCD_DIS_NORMAL);
             LCD_UpdateWorkAre();
             
-            //初�?�化为默认信道信�?
+            //初�?�化为默认信道信�?
             ResetChannelData();
             NVIC_SystemReset();//复位系统
         }
@@ -841,11 +873,11 @@ extern void EnterResetMode(void)
     memset(disBuf,0x00,17);
     if(g_radioInform.language == LANG_CN)
     {
-        sprintf(disBuf,"%-*.*s\n\r",16,16,"�?认初始化?");
+        sprintf(disBuf,"%-*.*s",16,16,"认初始化?");
     }
     else
     {
-        sprintf(disBuf,"%-*.*s\n\r",16,16,"Sure to Reset?");
+        sprintf(disBuf,"%-*.*s",16,16,"Sure to Reset?");
     }
     LCD_DisplayText(47, 0, (U8 *)disBuf, FONTSIZE_16x16,LCD_DIS_NORMAL);
     LCD_UpdateWorkAre();
@@ -857,13 +889,13 @@ extern void EnterResetMode(void)
             App_10msTask();
         }
         
-        //100ms运�?�一�?
+        //100ms运�?�一�?
         if(g_100msFlag)
         {
             App_100msTask();
         }
 
-        //500ms运�?�一�?
+        //500ms运�?�一�?
         if(g_500msFlag)
         {
             App_500msTask();
@@ -883,20 +915,20 @@ extern void EnterResetMode(void)
         }
 
         if(HL_GetMode() != MODE_MENU)
-        {//按PTT直接�?出菜�?
+        {//按PTT直接�?出菜�?
             return;
         }
         Audio_PlayTask();
     }
 
-    //显示请等�?
+    //显示请等�?
     if(g_radioInform.language == LANG_CN)
     {
-        sprintf(disBuf,"%-*.*s\n\r",16,16,"  请等�?...  ");
+        sprintf(disBuf,"%-*.*s",16,16,"  请等...  ");
     }
     else
     {
-        sprintf(disBuf,"%-*.*s\n\r",16,16,"Please Wait...");
+        sprintf(disBuf,"%-*.*s",16,16,"Please Wait...");
     }
     LCD_DisplayText(47, 0, (U8 *)disBuf, FONTSIZE_16x16,LCD_DIS_NORMAL);
     LCD_UpdateWorkAre();
@@ -913,7 +945,7 @@ extern void EnterResetMode(void)
         ResetRadioFunData();
     }
     
-    //延时500ms后重�?
+    //延时500ms后重�?
     DelayMs(500);
     //复位系统
     NVIC_SystemReset();
@@ -1018,13 +1050,13 @@ extern void Menu_EnterNextLevel(void)
         }
         
         if((g_menuInfo.inputMode == MENU_CH_FREQ || g_menuInfo.inputMode == MENU_ONE_VFOSCAN) && (g_inputbuf.len != 0 && g_inputbuf.len != 6))
-        {//输入频率时特殊�?�理
+        {//输入频率时特殊�?�理
             BeepOut(BEEP_NULL);
             return;
         }
         VoiceBroadcastWithBeepLock(vo_Confirm,BEEP_FASTSW);
 
-        //执�?�菜单保存函�?
+        //执�?�菜单保存函�?
         if(g_menuInfo.menuType == 1)
         {
             Menu_SaveFmSelectItem(g_menuInfo.menuIndex);
@@ -1035,7 +1067,7 @@ extern void Menu_EnterNextLevel(void)
         }
 
         if(HL_GetMode() != MODE_MENU)
-        {//执�?�菜单后，不在菜单模式，直接�?出菜�?
+        {//执�?�菜单后，不在菜单模式，直接�?出菜�?
             return;
         }
         g_rfRxState = RX_READY;
@@ -1057,7 +1089,7 @@ extern void Menu_EnterNextLevel(void)
     {//选择菜单模式
         //ResetInputBuf();
         if(g_menuInfo.inputMode == MENU_ONE_NULL)
-        {//当前菜单�?用于显示内�?�，不带操作时，直接返回
+        {//当前菜单�?用于显示内�?�，不带操作时，直接返回
             VoiceBroadcastWithBeepLock(vo_Cancel,BEEP_EXITMENU);
             return;
         }
@@ -1134,7 +1166,7 @@ extern void Menu_KeyDigitalInput(U8 input)
 
     switch(g_menuInfo.inputMode)
     {
-        case MENU_ONE_CHAR:              //输入字母或�?�拼�?
+        case MENU_ONE_CHAR:              //输入字母或�?�拼�?
             if(g_menuInfo.isSubMenu)
             {
                 if (NumToChar(input) != OK)
@@ -1143,7 +1175,7 @@ extern void Menu_KeyDigitalInput(U8 input)
                 }
                 break;
             }
-        case MENU_ONE_CTCSS:             //模拟亚音频�?�择和输�?
+        case MENU_ONE_CTCSS:             //模拟亚音频�?�择和输�?
             if(g_menuInfo.isSubMenu)
             {
                 CtcssTypeIn(input);
@@ -1175,7 +1207,7 @@ extern void Menu_KeyDigitalInput(U8 input)
             }
         case MENU_ONE_DECODE:
             if((g_menuInfo.isSubMenu) && (flag == 0) && (g_sysRunPara.decoderCode == 0))
-            {//flag用于判断�?否在code模式时，没有破码时，�?大数量需要减1
+            {//flag用于判断�?否在code模式时，没有破码时，�?大数量需要减1
                 maxItem -= 1;
             }
         case MENU_ONE_SELECT:
@@ -1184,7 +1216,7 @@ extern void Menu_KeyDigitalInput(U8 input)
             {
                 g_menuInfo.fastSelect = 0;
             }
-            //用于菜单改变时快速�?�择菜单输入
+            //用于菜单改变时快速�?�择菜单输入
             if(flag)
             {
                 if((selectVal+1) != g_menuInfo.fastSelect)
@@ -1260,17 +1292,17 @@ extern void DcsSwitchPolarity(void)
     g_menuInfo.fastSelect = 0;
 
     if(g_menuInfo.selectedItem == 0 || g_menuInfo.selectedItem == 211)
-    {//如果�?关闭状�?�或者破码状态则不切�?
+    {//如果�?关闭状�?�或者破码状态则不切�?
         return;
     }
 
     if(g_menuInfo.selectedItem <= 105)
-    {//正码切换为反�?
+    {//正码切换为反�?
         g_menuInfo.selectedItem += 105;
         BeepOut(BEEP_FMDOWN);
     }
     else
-    {//反码切换为�?�码
+    {//反码切换为�?�码
         g_menuInfo.selectedItem -= 105;
         BeepOut(BEEP_FMUP);
     }
@@ -1427,7 +1459,7 @@ extern void KeyProcess_Menu(U8 keyEvent)
             break;     
         case KEYID_WELL:
             if (g_menuInfo.inputMode == MENU_ONE_DECODE)
-            {//输入数字亚音模式切换正反码使�?
+            {//输入数字亚音模式切换正反码使�?
                 DcsSwitchPolarity();
             }
             else
