@@ -287,68 +287,70 @@ extern void DtmfSendTxOver(void)
     Rfic_SetAfout(0);        
 }
 
+// Async non-blocking DTMF state machine.
+// dtmfInfo.timeOut is decremented by the SysTick ISR every 1ms in hardware.
+// This function is called from App_10msTask() and executes one step per call.
+// The CPU is never blocked — no watchdog issues, no audio glitches.
 extern void DtmfSendTask(void)
 {
     U8  tblOnTime[] = {5, 10, 20, 30, 40, 50};
     U8  tblOffTime[] = {5, 10, 20, 30, 40, 50};
 
-    while(dtmfInfo.state)
+    if (!dtmfInfo.state)
+        return;
+
+    if(dtmfInfo.timeOut == 0)
     {
-        IWDG_ReloadCounter(); // NASA Standard: feed watchdog in blocking DTMF tx loop
-        if(dtmfInfo.timeOut == 0)
+        switch(dtmfInfo.state)
         {
-            switch(dtmfInfo.state)
-            {
-                case DTMF_SETUP:
+            case DTMF_SETUP:
+                dtmfInfo.sendFlag = 0;
+                dtmfInfo.enCodeNum = 0;
+                Rfic_EnterDTMFMode(1);
+
+                dtmfInfo.enCode = dtmfInfo.code[dtmfInfo.enCodeNum];
+                
+                if(g_radioInform.dtmfTone&BIT1)    
+                {
+                    Rfic_RxTxOnOffSetup(RFIC_TXTONE);
+                    Rfic_SetAfout(0xF1);
+                    SpeakerSwitch(ON);
+                }
+                dtmfInfo.state = DTMF_FREQ;
+
+            case DTMF_FREQ:
+                if(dtmfInfo.sendFlag == 0)
+                {
+                    Rfic_SetDtmfFreq(DTMFCODE[dtmfInfo.enCode].tone1Freq,DTMFCODE[dtmfInfo.enCode].tone2Freq);
+                    dtmfInfo.timeOut = tblOnTime[g_dtmfStore.onTime] * 10;
+                    dtmfInfo.sendFlag = 1;
+                }
+                else
+                {
+                    Rfic_SetDtmfFreq(0,0);
+                    dtmfInfo.timeOut = tblOffTime[g_dtmfStore.offTime] * 10;  
                     dtmfInfo.sendFlag = 0;
-                    dtmfInfo.enCodeNum = 0;
-                    Rfic_EnterDTMFMode(1);
-   
+                    dtmfInfo.enCodeNum++;
                     dtmfInfo.enCode = dtmfInfo.code[dtmfInfo.enCodeNum];
-                    
-                    if(g_radioInform.dtmfTone&BIT1)    
+
+                    if(dtmfInfo.enCode == 0xFF || dtmfInfo.enCodeNum >= 16)
                     {
+                        dtmfInfo.state = DTMF_STOP;
+                        dtmfInfo.enCodeNum = 0;
+                        dtmfInfo.timeOut = 10;
 
-                        Rfic_RxTxOnOffSetup(RFIC_TXTONE);
-                        Rfic_SetAfout(0xF1);
-                        SpeakerSwitch(ON);
+                        SpeakerSwitch(OFF);
+                        Rfic_TxSingleTone_Off();
+                        Rfic_SetAfout(0);
+                        Rfic_ExitDTMFMode(); 
                     }
-                    dtmfInfo.state = DTMF_FREQ;
-
-                case DTMF_FREQ:
-                    if(dtmfInfo.sendFlag == 0)
-                    {
-                        Rfic_SetDtmfFreq(DTMFCODE[dtmfInfo.enCode].tone1Freq,DTMFCODE[dtmfInfo.enCode].tone2Freq);
-                        dtmfInfo.timeOut = tblOnTime[g_dtmfStore.onTime] * 10;
-                        dtmfInfo.sendFlag = 1;
-                    }
-                    else
-                    {
-                        Rfic_SetDtmfFreq(0,0);
-                        dtmfInfo.timeOut = tblOffTime[g_dtmfStore.offTime] * 10;  
-                        dtmfInfo.sendFlag = 0;
-                        dtmfInfo.enCodeNum++;
-                        dtmfInfo.enCode = dtmfInfo.code[dtmfInfo.enCodeNum];
-
-                        if(dtmfInfo.enCode == 0xFF || dtmfInfo.enCodeNum >= 16)
-                        {
-                            dtmfInfo.state = DTMF_STOP;
-                            dtmfInfo.enCodeNum = 0;
-                            dtmfInfo.timeOut = 10;
-
-                            SpeakerSwitch(OFF);
-                            Rfic_TxSingleTone_Off();
-                            Rfic_SetAfout(0);
-                            Rfic_ExitDTMFMode(); 
-                        }
-                    }
-                    break;
-                case DTMF_STOP:
-                default:
-                    dtmfInfo.state = DTMF_OVER;
-                    dtmfInfo.sendFlag = 0;
-                    break;
-            }
+                }
+                break;
+            case DTMF_STOP:
+            default:
+                dtmfInfo.state = DTMF_OVER;
+                dtmfInfo.sendFlag = 0;
+                break;
         }
     }
 }
