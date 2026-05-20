@@ -38,6 +38,15 @@ extern void DisplayStateBar(void)
 {
     U8 reverse;
 
+    if (g_sysRunPara.sysRunMode == MODE_HL_MENU ||
+        g_sysRunPara.sysRunMode == MODE_DASHBOARD ||
+        g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN ||
+        g_sysRunPara.sysRunMode == MODE_MASTER_PAIR ||
+        g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
+    {
+        return;
+    }
+
     LCD_ClearStateBar();
 
     reverse = g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].reverseFlag;

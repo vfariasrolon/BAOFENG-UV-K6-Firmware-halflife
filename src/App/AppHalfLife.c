@@ -450,12 +450,19 @@ static void GetRotatedChar8x16(char ch, U8 *outBuf)
     for (U8 c_rot = 0; c_rot < 16; c_rot++)
     {
         U8 colByte = 0;
-        U8 r = c_rot; // original row is rotated column
+        U8 r = c_rot; // original row (0..15) is rotated column (0..15)
         for (U8 r_rot = 0; r_rot < 8; r_rot++)
         {
-            U8 c = 7 - r_rot; // original column
-            // Get original pixel bit at (r, c)
-            U8 bit = (inBuf[c * 2 + (r / 8)] >> (r % 8)) & 1;
+            U8 c = 7 - r_rot; // original column (0..7)
+            U8 bit;
+            if (r < 8)
+            {
+                bit = (inBuf[c] >> r) & 1;
+            }
+            else
+            {
+                bit = (inBuf[8 + c] >> (r - 8)) & 1;
+            }
             colByte |= (bit << r_rot);
         }
         outBuf[c_rot] = colByte;

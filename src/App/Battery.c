@@ -32,6 +32,15 @@ extern void DisplayBattaryFlag(U8 updateFlag)
 {
     U8 battLevel;
 
+    if (g_sysRunPara.sysRunMode == MODE_HL_MENU ||
+        g_sysRunPara.sysRunMode == MODE_DASHBOARD ||
+        g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN ||
+        g_sysRunPara.sysRunMode == MODE_MASTER_PAIR ||
+        g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
+    {
+        return;
+    }
+
     if(battery.batteryLevel >= BATT_HIGH)
     {
         battLevel = BATT_FULL;
@@ -57,6 +66,15 @@ void BatteryLowFlash(void)
 {
     static U8 flash;
     
+    if (g_sysRunPara.sysRunMode == MODE_HL_MENU ||
+        g_sysRunPara.sysRunMode == MODE_DASHBOARD ||
+        g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN ||
+        g_sysRunPara.sysRunMode == MODE_MASTER_PAIR ||
+        g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
+    {
+        return;
+    }
+
     if(flash)
     {
         flash = 0;
