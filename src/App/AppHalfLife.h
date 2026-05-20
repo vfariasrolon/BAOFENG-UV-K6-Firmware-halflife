@@ -54,6 +54,10 @@ U32 GetSiliconUUID(void);
 void HL_TxVrfrModeA(U8 flagClose);
 void HL_ProcessIncomingOTAP(const char *dtmfString);
 
+// Event Hooks
+void HL_Hook_OnPttPress(void);
+void HL_Hook_OnPttRelease(void);
+
 extern U8 g_hlMenuIndex;
 extern U8 g_aniContactIndex;
 

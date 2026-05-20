@@ -1,4 +1,5 @@
 #include "includes.h"
+#include "App/AppHalfLife.h"
 
 const U8 *SignalLevelStr[] = 
 {
@@ -546,7 +547,6 @@ extern void DisplayHomePage(void)
 {
     if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
     {
-        extern void UI_DisplayDashboard(void);
         UI_DisplayDashboard();
         return;
     }
@@ -711,6 +711,12 @@ extern void DisplayRxMode(void)
 
 extern void DisplayTxMode(void)
 {
+    if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+    {
+        UI_DisplayDashboard();
+        return;
+    }
+
     if(g_CurrentVfo->txPower)
     {
         DisplayTxSingalFlag(2);

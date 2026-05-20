@@ -868,7 +868,7 @@ void HL_ProcessIncomingOTAP(const char *dtmfString)
         extern void Rfic_ConfigRxMode(void);
         extern void Rfic_SetScramble(U8 group, U32 freq);
         Rfic_ConfigRxMode();
-        Rfic_SetScramble(g_CurrentVfo->scarmble, g_CurrentVfo->rx->frequency);
+        Rfic_SetScramble(g_CurrentVfo->scarmble, g_CurrentVfo->freqRx.frequency);
         
         s_jumpInactivityTimer = 0;
         
@@ -912,7 +912,7 @@ void HL_TxVrfrModeA(U8 flagClose)
     else
     {
         // Digits 3-8: Get current RX frequency in hundreds of Hz
-        U32 f = g_CurrentVfo->rx->frequency / 100;
+        U32 f = g_CurrentVfo->freqRx.frequency / 100;
         U8 i;
         for (i = 8; i >= 3; i--)
         {
@@ -928,8 +928,23 @@ void HL_TxVrfrModeA(U8 flagClose)
     // Digit 11: '#' -> 15
     g_sysRunPara.txDtmfCode.code[11] = 15;
     g_sysRunPara.txDtmfCode.codeLen = 12;
-    
     // Send it synchronously!
     extern void DtmfSendCodeOn(U8 type);
     DtmfSendCodeOn(DTMF_TYPEIN);
+}
+
+extern void HL_Hook_OnPttPress(void)
+{
+    if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+    {
+        HL_TxVrfrModeA(0); // OPEN
+    }
+}
+
+extern void HL_Hook_OnPttRelease(void)
+{
+    if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+    {
+        HL_TxVrfrModeA(1); // CLOSE
+    }
 }

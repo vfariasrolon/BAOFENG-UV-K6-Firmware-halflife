@@ -1,4 +1,5 @@
 #include "includes.h"
+#include "App/AppHalfLife.h"
 
 static U8 periodSqlLevel=0xff;
 static U8 sqCnt = 0;
@@ -393,8 +394,7 @@ extern void RF_TxTask(void)
             
             if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
             {
-                extern void HL_TxVrfrModeA(U8 flagClose);
-                HL_TxVrfrModeA(0); // OPEN
+                HL_Hook_OnPttPress();
                 g_sysRunPara.rfTxFlag.totTime = g_radioInform.totLevel*150;
                 g_rfTxState = WAIT_PTT_RELEASE;
                 break;
@@ -427,7 +427,11 @@ extern void RF_TxTask(void)
            }
            //DtmfRstMatchTimer(0);
 
-           if(g_CurrentVfo->pttIdMode&BIT1)
+           if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+           {
+               HL_Hook_OnPttRelease();
+           }
+           else if(g_CurrentVfo->pttIdMode&BIT1)
            {
                DtmfSendCodeOn(g_dtmfStore.dtmfFlag&BIT1);
            }
