@@ -95,19 +95,52 @@ extern void SideKey_Process(U8 realEvent)
             }
             break;
         case KEYID_FM:
-            if (g_sysRunPara.sysRunMode == MODE_HL_MENU ||
-                g_sysRunPara.sysRunMode == MODE_DASHBOARD ||
-                g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN ||
-                g_sysRunPara.sysRunMode == MODE_MASTER_PAIR ||
-                g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
+            if (g_sysRunPara.sysRunMode == MODE_HL_MENU)
             {
-                g_sysRunPara.sysRunMode = MODE_MAIN;
+                // Confirm selected option, just like KEYID_MENU!
+                extern U8 g_hlMenuIndex;
+                BeepOut(BEEP_FASTSW);
+                if (g_hlMenuIndex == 0)
+                {
+                    g_sysRunPara.sysRunMode = MODE_DASHBOARD;
+                    extern void UI_DisplayDashboard(void);
+                    UI_DisplayDashboard();
+                }
+                else if (g_hlMenuIndex == 1)
+                {
+                    g_sysRunPara.sysRunMode = MODE_MASTER_PAIR;
+                    extern void MasterPairInit(void);
+                    MasterPairInit();
+                }
+                else if (g_hlMenuIndex == 2)
+                {
+                    g_sysRunPara.sysRunMode = MODE_SLAVE_LISTEN;
+                    extern void UI_DisplaySlaveListen(void);
+                    UI_DisplaySlaveListen();
+                }
+                else if (g_hlMenuIndex == 3)
+                {
+                    g_sysRunPara.sysRunMode = MODE_DTMF_ANI;
+                    extern U8 g_aniContactIndex;
+                    g_aniContactIndex = 0;
+                    extern void UI_DisplayAniContacts(void);
+                    UI_DisplayAniContacts();
+                }
+            }
+            else if (g_sysRunPara.sysRunMode == MODE_DASHBOARD ||
+                     g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN ||
+                     g_sysRunPara.sysRunMode == MODE_MASTER_PAIR ||
+                     g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
+            {
+                // Go back to the HL Menu!
+                g_sysRunPara.sysRunMode = MODE_HL_MENU;
                 BeepOut(BEEP_EXITMENU);
-                DisplayHomePage();
-                RxReset();
+                extern void UI_DisplayHlMenu(void);
+                UI_DisplayHlMenu();
             }
             else
             {
+                // Standard: enter the HL Menu!
                 g_sysRunPara.sysRunMode = MODE_HL_MENU;
                 extern U8 g_hlMenuIndex;
                 g_hlMenuIndex = 0;

@@ -520,7 +520,7 @@ void UI_DisplayDashboard(void)
     
     // Title on the right
     LCD_DrawRectangle(3, 26, 98, 11, 1);
-    LCD_DisplayText(4, 45, (U8 *)"TELEMETRIA", FONTSIZE_12x12, LCD_DIS_INVERT);
+    LCD_DisplayText(4, 50, (U8 *)"VRFR (A)", FONTSIZE_12x12, LCD_DIS_INVERT);
     
     // Subheaders
     LCD_DisplayText(18, 27, (U8 *)"ID BAT  RSSI  ST", FONTSIZE_12x12, LCD_DIS_NORMAL);
@@ -641,7 +641,7 @@ void UI_DisplayHlMenu(void)
     
     // Render the items
     const char *menuItems[] = {
-        "1. TELEMETRIA",
+        "1. VRFR (A)",
         "2. MDO MAESTRO",
         "3. MDO ESCLAVO",
         "4. AGENDA DTMF"

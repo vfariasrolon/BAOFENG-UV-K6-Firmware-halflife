@@ -21,7 +21,6 @@ extern void PTT_ScanTask(void)
     if(PTT_GetKeyVal() == 0)
     {
         if(g_sysRunPara.sysRunMode == MODE_HL_MENU ||
-           g_sysRunPara.sysRunMode == MODE_DASHBOARD ||
            g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
         {
             g_sysRunPara.sysRunMode = MODE_MAIN;
