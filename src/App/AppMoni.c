@@ -4,7 +4,7 @@ extern void EnterMoniMode(void)
 {
     ExitAllFunction(0);
     g_sysRunPara.moniFlag = 1;
-    g_sysRunPara.sysRunMode = MODE_MONI;
+    HL_SetMode(MODE_MONI);
 
     // Forzar apertura de canal de audio, receptor y squelch
     Rfic_WakeUp();
@@ -21,7 +21,7 @@ extern void EnterMoniMode(void)
 
 void ExitMoniMode(void)
 {
-    g_sysRunPara.sysRunMode = MODE_MAIN;
+    HL_SetMode(MODE_MAIN);
     g_sysRunPara.moniFlag = 0;
     RF_RxEnd();
     SpeakerSwitch(OFF);

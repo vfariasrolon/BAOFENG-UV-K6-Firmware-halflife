@@ -1,9 +1,11 @@
 #include "includes.h"
+#include "AppHalfLife.h"
+#include "DevFD6818.h"
 
 const U8 sideKeyEvent[] = {KEYID_NONE,KEYID_LIGHT,KEYID_PWRSW,KEYID_SCAN,KEYID_VOX,KEYID_SOS,KEYID_FM};
 const U8 DefaultSideKeyEvent[3] = {KEYID_LIGHT,KEYID_SOS,KEYID_FM};
 
-extern U8 Sidekey_GetRemapEvent(U8 event)
+U8 Sidekey_GetRemapEvent(U8 event)
 {
     U8 realEvent;
 
@@ -47,7 +49,7 @@ extern U8 Sidekey_GetRemapEvent(U8 event)
     return realEvent;
 }
 
-extern void SideKey_Process(U8 realEvent)
+void SideKey_Process(U8 realEvent)
 {
     
     if(realEvent == KEYID_NONE)
@@ -72,7 +74,7 @@ extern void SideKey_Process(U8 realEvent)
             Radio_TxPowerSWitch();
             break;
         case KEYID_SCAN:
-            if(g_sysRunPara.sysRunMode == MODE_SCAN)
+            if(HL_GetMode() == MODE_SCAN)
             {
                 ScanOff();
             }
@@ -95,57 +97,48 @@ extern void SideKey_Process(U8 realEvent)
             }
             break;
         case KEYID_FM:
-            if (g_sysRunPara.sysRunMode == MODE_HL_MENU)
+            if (HL_GetMode() == MODE_HL_MENU)
             {
                 // Confirm selected option, just like KEYID_MENU!
-                extern U8 g_hlMenuIndex;
                 BeepOut(BEEP_FASTSW);
                 if (g_hlMenuIndex == 0)
                 {
-                    g_sysRunPara.sysRunMode = MODE_DASHBOARD;
-                    extern void UI_DisplayDashboard(void);
+                    HL_SetMode(MODE_DASHBOARD);
                     UI_DisplayDashboard();
                 }
                 else if (g_hlMenuIndex == 1)
                 {
-                    g_sysRunPara.sysRunMode = MODE_MASTER_PAIR;
-                    extern void MasterPairInit(void);
+                    HL_SetMode(MODE_MASTER_PAIR);
                     MasterPairInit();
                 }
                 else if (g_hlMenuIndex == 2)
                 {
-                    g_sysRunPara.sysRunMode = MODE_SLAVE_LISTEN;
-                    extern void UI_DisplaySlaveListen(void);
+                    HL_SetMode(MODE_SLAVE_LISTEN);
                     UI_DisplaySlaveListen();
                 }
                 else if (g_hlMenuIndex == 3)
                 {
-                    g_sysRunPara.sysRunMode = MODE_DTMF_ANI;
-                    extern U8 g_aniContactIndex;
+                    HL_SetMode(MODE_DTMF_ANI);
                     g_aniContactIndex = 0;
-                    extern void UI_DisplayAniContacts(void);
                     UI_DisplayAniContacts();
                 }
             }
-            else if (g_sysRunPara.sysRunMode == MODE_DASHBOARD ||
-                     g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN ||
-                     g_sysRunPara.sysRunMode == MODE_MASTER_PAIR ||
-                     g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
+            else if (HL_GetMode() == MODE_DASHBOARD ||
+                     HL_GetMode() == MODE_SLAVE_LISTEN ||
+                     HL_GetMode() == MODE_MASTER_PAIR ||
+                     HL_GetMode() == MODE_DTMF_ANI)
             {
                 // Go back to the HL Menu!
-                g_sysRunPara.sysRunMode = MODE_HL_MENU;
+                HL_SetMode(MODE_HL_MENU);
                 BeepOut(BEEP_EXITMENU);
-                extern void UI_DisplayHlMenu(void);
                 UI_DisplayHlMenu();
             }
             else
             {
                 // Standard: enter the HL Menu!
-                g_sysRunPara.sysRunMode = MODE_HL_MENU;
-                extern U8 g_hlMenuIndex;
+                HL_SetMode(MODE_HL_MENU);
                 g_hlMenuIndex = 0;
                 BeepOut(BEEP_FASTSW);
-                extern void UI_DisplayHlMenu(void);
                 UI_DisplayHlMenu();
             }
             break;
@@ -154,7 +147,7 @@ extern void SideKey_Process(U8 realEvent)
     }
 }
 
-extern void Main_KeyDigitalInput(U8 keyEvent)
+void Main_KeyDigitalInput(U8 keyEvent)
 {
     g_inputbuf.buf[g_inputbuf.len] = keyEvent - KEYID_0 + 0x30;
     g_inputbuf.time = INPUT_TIME_OUT;
@@ -173,7 +166,7 @@ extern void Main_KeyDigitalInput(U8 keyEvent)
     }
 }
 
-extern void Main_KeyUpFun(U8 flag)
+void Main_KeyUpFun(U8 flag)
 {
     ResetInputBuf();
     
@@ -204,7 +197,7 @@ extern void Main_KeyUpFun(U8 flag)
     }
 }
 
-extern void Main_KeyDownFun(U8 flag)
+void Main_KeyDownFun(U8 flag)
 {
     ResetInputBuf();
 
@@ -237,7 +230,7 @@ extern void Main_KeyDownFun(U8 flag)
     }
 }
 
-extern void Main_Backspace(void)
+void Main_Backspace(void)
 {
     if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == VFO_MODE)
     {//频率模式下有输入字符时作为退格使用
@@ -296,7 +289,7 @@ extern void Main_Backspace(void)
     }
 }
 
-extern void KeyProcess_Main(U8 keyEvent)
+void KeyProcess_Main(U8 keyEvent)
 {
     switch(keyEvent)
     {
@@ -345,7 +338,6 @@ extern void KeyProcess_Main(U8 keyEvent)
                 g_ChannelVfoInfo.chVfoInfo[activeAB].scarmble = 
                     (g_ChannelVfoInfo.chVfoInfo[activeAB].scarmble + 1) % 5;
                 
-                extern void Rfic_SetScramble(U8 group, U32 freq);
                 Rfic_SetScramble(
                     g_ChannelVfoInfo.chVfoInfo[activeAB].scarmble,
                     g_ChannelVfoInfo.chVfoInfo[activeAB].rx->frequency

@@ -1,4 +1,5 @@
 #include "includes.h"
+#include "AppHalfLife.h"
 enum{ DTMF_ID_0, DTMF_ID_1, DTMF_ID_2, DTMF_ID_3, DTMF_ID_4, DTMF_ID_5, DTMF_ID_6, DTMF_ID_7, 
       DTMF_ID_8, DTMF_ID_9, DTMF_ID_A, DTMF_ID_B, DTMF_ID_C, DTMF_ID_D, DTMF_ID_STAR, DTMF_ID_POUND};
 
@@ -48,7 +49,7 @@ STR_DTMFINFO dtmfInfo;
 
 extern void EnterDtmfEditMode(void)
 {
-    if(g_sysRunPara.sysRunMode != MODE_MAIN && (g_rfRxState == WAIT_RXEND))
+    if(HL_GetMode() != MODE_MAIN && (g_rfRxState == WAIT_RXEND))
     {
         BeepOut(BEEP_NULL);
         return;
@@ -56,7 +57,7 @@ extern void EnterDtmfEditMode(void)
     BeepOut(BEEP_FASTSW);
     //需要关闭双守候，避免出错
     DualStandbyWorkOFF();
-    g_sysRunPara.sysRunMode = MODE_DTMF;
+    HL_SetMode(MODE_DTMF);
 
     ResetInputBuf();
 
@@ -86,7 +87,7 @@ extern void GetDtmfEditCode(void)
 {
     U8 i;
 
-    if(g_sysRunPara.sysRunMode != MODE_DTMF)
+    if(HL_GetMode() != MODE_DTMF)
     {
         return;
     }
@@ -95,7 +96,7 @@ extern void GetDtmfEditCode(void)
 
     if(g_inputbuf.len == 0)
     {//无输入时，直接退出该模式
-        g_sysRunPara.sysRunMode = MODE_MAIN;
+        HL_SetMode(MODE_MAIN);
         return; 
     }
     
@@ -122,7 +123,7 @@ extern void GetDtmfEditCode(void)
         }
     }
     //获取到DTMF发码后，切换为正常模式
-    g_sysRunPara.sysRunMode = MODE_MAIN;
+    HL_SetMode(MODE_MAIN);
 }
 
 extern void ResetDtmfEditCode(void)
@@ -132,7 +133,7 @@ extern void ResetDtmfEditCode(void)
 
 extern void ExitDtmfEditMode(void)
 {    
-    g_sysRunPara.sysRunMode = MODE_MAIN;
+    HL_SetMode(MODE_MAIN);
 
     BeepOut(BEEP_EXITMENU);
     
@@ -450,7 +451,7 @@ extern void DtmfSendCodeOn(U8  type)
 
 void DtmfReceiveSetup(void)
 {
-    if(g_sysRunPara.sysRunMode == MODE_WEATHER)
+    if(HL_GetMode() == MODE_WEATHER)
     {//天气预报模式不解DTMF
         return;
     }
@@ -465,7 +466,7 @@ void ClearDisANIFlag(void)
 {
     if(dtmfInfo.flagDtmfMatch)
     {
-        if(g_sysRunPara.sysRunMode != MODE_MAIN)
+        if(HL_GetMode() != MODE_MAIN)
         {
             dtmfInfo.flagDtmfMatch = 0;
             return;
@@ -538,7 +539,6 @@ void DtmfAnalyseFunc(void)
         }
         dtmfStr[12] = ' ';
         
-        extern void HL_ProcessIncomingOTAP(const char *dtmfString);
         HL_ProcessIncomingOTAP(dtmfStr);
         
         dtmfInfo.cntRxDtmf = 0;

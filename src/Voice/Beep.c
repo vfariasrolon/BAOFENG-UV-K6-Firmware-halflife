@@ -1,7 +1,6 @@
 #include "includes.h"
 
 volatile STR_BEEP beepDat;
-extern STR_MENUINFO g_menuInfo;
 
 const U8  BEEP_tone[9][3] = 
 {

@@ -17,7 +17,7 @@ extern void ExitAllFunction(U8 flag)
     ExitWeatherMode();
     ExitStopWatchMode();
 
-    if(g_sysRunPara.sysRunMode == MODE_FM)
+    if(HL_GetMode() == MODE_FM)
     {
         FmEnterSleepMode();
         if(flag)
@@ -26,24 +26,23 @@ extern void ExitAllFunction(U8 flag)
         }
     }
 
-    if(g_sysRunPara.sysRunMode == MODE_MENU)
+    if(HL_GetMode() == MODE_MENU)
     {
         Menu_ExitMode();
         return;
     }
 
-    if(g_sysRunPara.sysRunMode == MODE_HL_MENU ||
-       g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
+    if(HL_GetMode() == MODE_HL_MENU ||
+       HL_GetMode() == MODE_DTMF_ANI)
     {
-        g_sysRunPara.sysRunMode = MODE_MAIN;
-        extern void DisplayHomePage(void);
-        extern void RxReset(void);
+        HL_SetMode(MODE_MAIN);
+        
         DisplayHomePage();
         RxReset();
         return;
     }
 
-    /*if(g_sysRunPara.sysRunMode != MODE_MAIN)
+    /*if(HL_GetMode() != MODE_MAIN)
     {
         DisplayHomePage();
     }*/
@@ -53,7 +52,7 @@ extern void CheckAutoKeyLockTask(void)
 {
     if(g_radioInform.keyAutoLock)
     {//自动键盘锁开启
-        if(g_sysRunPara.sysRunMode == MODE_MENU || g_sysRunPara.sysRunMode == MODE_SEARCH || g_sysRunPara.sysRunMode == MODE_STOPWATCH)
+        if(HL_GetMode() == MODE_MENU || HL_GetMode() == MODE_SEARCH || HL_GetMode() == MODE_STOPWATCH)
         {
             //菜单模式下，键盘不自动锁定
             return;
@@ -158,7 +157,7 @@ extern void VoxCheckTask(void)
         return;
     }
 
-    if(Audio_CheckBusy() || alarmDat.alarmStates || g_sysRunPara.sysRunMode >= MODE_MENU )
+    if(Audio_CheckBusy() || alarmDat.alarmStates || HL_GetMode() >= MODE_MENU )
     {
         g_sysRunPara.rfTxFlag.voxDetDly = 15;//1.5S
         return;

@@ -129,7 +129,7 @@ extern void CheckProgromMode(U8 rxData)
     static U8 rxPreData;
     
     progrom.timeOut = UART_TIMEOUT;
-    if(g_sysRunPara.sysRunMode == MODE_FLASH_PROGRAM)
+    if(HL_GetMode() == MODE_FLASH_PROGRAM)
     {
         progrom.rxBuf[progrom.dataNum] = rxData;
         progrom.dataNum = (progrom.dataNum + 1) % UART_MAX_NUM;
@@ -144,7 +144,7 @@ extern void CheckProgromMode(U8 rxData)
             if((rxData == linkHead[1] && rxPreData == linkHead[0]) || (rxData == linkHead[2] && rxPreData == linkHead[1]))
             {
                 progrom.enterMode = 1;
-                g_sysRunPara.sysRunMode = MODE_PROGRAM;
+                HL_SetMode(MODE_PROGRAM);
             }
             rxPreData = rxData;
             progrom.dataNum = 0;  
@@ -385,7 +385,7 @@ extern void EnterProgromMode(void)
                     }
                     else if(progromCmd == PRG_CMD_FLASH)
                     {
-                        g_sysRunPara.sysRunMode = MODE_FLASH_PROGRAM;
+                        HL_SetMode(MODE_FLASH_PROGRAM);
                         progrom.enterMode = 0;
                         progrom.dataNum = 0;
                         progrom.timeOut = 0;
@@ -618,7 +618,7 @@ void HandleProgromCmd(void)
 extern void EnterFlashProgromMode(void)
 {
     progrom.states = FLASH_PRG_CHECKHEAD;
-    g_sysRunPara.sysRunMode = MODE_FLASH_PROGRAM;
+    HL_SetMode(MODE_FLASH_PROGRAM);
     progrom.packageTime = 0;
     progrom.timeOut = 0;
     //默认设置起始地址为0

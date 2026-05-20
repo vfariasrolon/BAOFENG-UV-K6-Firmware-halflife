@@ -61,4 +61,8 @@
 
 #include "ProgromFlash.h"
 
+// globally available NASA Single State Authority mode controller
+void HL_SetMode(U8 newMode);
+U8 HL_GetMode(void);
+
 #endif

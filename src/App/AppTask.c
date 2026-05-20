@@ -1,9 +1,13 @@
 #include "includes.h"
+#include "KD32f328_iwdg.h"
 #include "AppHalfLife.h"
 
-extern void App_10msTask(void)
+void App_10msTask(void)
 {
     g_10msFlag = FALSE;
+
+    // Feed independent hardware watchdog
+    IWDG_ReloadCounter();
 
     RF_Task();
     KEY_ScanTask();
@@ -54,13 +58,13 @@ extern void AppRunTask(void)
     HL_SanitizeVfoPointers();
     
     // Half-Life Special modes loop execution
-    if (g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN)
+    if (HL_GetMode() == MODE_SLAVE_LISTEN)
     {
         SlaveListenTask();
         Audio_PlayTask();
         return;
     }
-    else if (g_sysRunPara.sysRunMode == MODE_MASTER_PAIR)
+    else if (HL_GetMode() == MODE_MASTER_PAIR)
     {
         MasterPairTask();
         Audio_PlayTask();
@@ -92,7 +96,7 @@ extern void AppRunTask(void)
                    break;
                }
                
-               switch(g_sysRunPara.sysRunMode)
+               switch(HL_GetMode())
                {
                    case MODE_SLAVE_LISTEN:
                        SlaveListenTask();
@@ -112,7 +116,7 @@ extern void AppRunTask(void)
                    case MODE_MENU:
                        if (keyEvent == KEYID_SCAN)
                        {
-                           g_sysRunPara.sysRunMode = MODE_MASTER_PAIR;
+                           HL_SetMode(MODE_MASTER_PAIR);
                            BeepOut(BEEP_FASTSW);
                            MasterPairInit();
                        }
@@ -156,12 +160,12 @@ extern void AppRunTask(void)
            break;
     }
 
-    if(g_sysRunPara.sysRunMode == MODE_PROGRAM)
+    if(HL_GetMode() == MODE_PROGRAM)
     {
         EnterProgromMode();
     }
 
-    if(g_sysRunPara.sysRunMode == MODE_FLASH_PROGRAM)
+    if(HL_GetMode() == MODE_FLASH_PROGRAM)
     {
         EnterFlashProgromMode();
     }

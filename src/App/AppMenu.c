@@ -189,7 +189,7 @@ extern void Menu_EnterMode(void)
     g_menuInfo.inputLen = 0;
     g_menuInfo.menuType = 0;
     ResetMenuExitTime();
-    g_sysRunPara.sysRunMode = MODE_MENU;
+    HL_SetMode(MODE_MENU);
     Menu_GetSubItemPara(g_menuInfo.menuIndex);
     
     Menu_Display();
@@ -198,7 +198,7 @@ extern void Menu_EnterMode(void)
 
 extern void Menu_ExitMode(void)
 {
-    if(g_sysRunPara.sysRunMode != MODE_MENU)
+    if(HL_GetMode() != MODE_MENU)
     {
         return;
     }
@@ -217,7 +217,7 @@ extern void Menu_ExitMode(void)
     }
     g_menuInfo.preIndex = g_menuInfo.menuIndex;
 
-    g_sysRunPara.sysRunMode = MODE_MAIN;
+    HL_SetMode(MODE_MAIN);
     g_rfRxState = RX_READY;
     g_menuInfo.menuExitTime = 0;
 
@@ -882,7 +882,7 @@ extern void EnterResetMode(void)
             break;
         }
 
-        if(g_sysRunPara.sysRunMode != MODE_MENU)
+        if(HL_GetMode() != MODE_MENU)
         {//按PTT直接�?出菜�?
             return;
         }
@@ -1034,7 +1034,7 @@ extern void Menu_EnterNextLevel(void)
             Menu_SaveSelectItem(g_menuInfo.menuIndex);
         }
 
-        if(g_sysRunPara.sysRunMode != MODE_MENU)
+        if(HL_GetMode() != MODE_MENU)
         {//执�?�菜单后，不在菜单模式，直接�?出菜�?
             return;
         }
@@ -1094,7 +1094,7 @@ extern void Menu_EnterNextLevel(void)
 
 extern void CheckExitMenu(void)
 {
-    if(g_sysRunPara.sysRunMode != MODE_MENU)
+    if(HL_GetMode() != MODE_MENU)
     {
         return;
     }
@@ -1292,7 +1292,7 @@ extern void EnterFMMenu(void)
     g_menuInfo.inputLen = 0;
     g_menuInfo.menuType = 1;
     ResetMenuExitTime();
-    g_sysRunPara.sysRunMode = MODE_MENU;
+    HL_SetMode(MODE_MENU);
     Menu_GetFmSubItemPara(g_menuInfo.menuIndex);
     Menu_Display();
 }
@@ -1311,7 +1311,7 @@ extern void FastEnterChMemMenu(void)
     g_menuInfo.fastInTime = 0;
     g_menuInfo.inputLen = 0;
     g_menuInfo.menuType = 0;
-    g_sysRunPara.sysRunMode = MODE_MENU;
+    HL_SetMode(MODE_MENU);
     Menu_GetSubItemPara(g_menuInfo.menuIndex);
     
     Menu_EnterNextLevel();

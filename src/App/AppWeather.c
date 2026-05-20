@@ -62,7 +62,7 @@ extern void EnterWeatherMode(void)
     DualStandbyWorkOFF();
 
     //如果在菜单模式，则退出菜单
-    if(g_sysRunPara.sysRunMode == MODE_MENU)
+    if(HL_GetMode() == MODE_MENU)
     {
         Menu_ExitMode();
     }
@@ -73,7 +73,7 @@ extern void EnterWeatherMode(void)
         g_radioInform.weatherNum = 0;
     }
 
-    g_sysRunPara.sysRunMode = MODE_WEATHER;
+    HL_SetMode(MODE_WEATHER);
     g_rfRxState = RX_READY;
 
     WeatherDisplayHome();
@@ -83,13 +83,13 @@ extern void EnterWeatherMode(void)
 
 extern void ExitWeatherMode(void)
 {
-    if(g_sysRunPara.sysRunMode != MODE_WEATHER)
+    if(HL_GetMode() != MODE_WEATHER)
     {
         return;
     }
 
     g_CurrentVfo->rx = &g_CurrentVfo->freqRx;
-    g_sysRunPara.sysRunMode = MODE_MAIN;
+    HL_SetMode(MODE_MAIN);
     ResetInputBuf();
     DualStandbyWorkOFF();
     
@@ -146,7 +146,7 @@ extern void WeatherScanTask(void)
 {
     static U8 sqCnt = 0;
 
-    if(g_sysRunPara.sysRunMode != MODE_WEATHER)
+    if(HL_GetMode() != MODE_WEATHER)
     {//不在扫描模式直接返回
         return;
     }

@@ -1,4 +1,5 @@
 #include "includes.h"
+#include "KD32f328_iwdg.h"
 
 __IO STR_INTFUN UserVectors[10] __attribute__((at(0x20001000))) __attribute__((section(".intfun")));
 
@@ -338,6 +339,14 @@ extern void Board_Init(void)
     UserADC_GetValOfBatt();
 
     SC5260_Init();
+
+    // NASA Standard IWDG Watchdog Initialization (1 second timeout)
+    IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
+    IWDG_SetPrescaler(IWDG_Prescaler_256);
+    IWDG_SetReload(156);
+    IWDG_ReloadCounter();
+    IWDG_Enable();
+
     __enable_irq();
 }
 

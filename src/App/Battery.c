@@ -32,11 +32,11 @@ extern void DisplayBattaryFlag(U8 updateFlag)
 {
     U8 battLevel;
 
-    if (g_sysRunPara.sysRunMode == MODE_HL_MENU ||
-        g_sysRunPara.sysRunMode == MODE_DASHBOARD ||
-        g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN ||
-        g_sysRunPara.sysRunMode == MODE_MASTER_PAIR ||
-        g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
+    if (HL_GetMode() == MODE_HL_MENU ||
+        HL_GetMode() == MODE_DASHBOARD ||
+        HL_GetMode() == MODE_SLAVE_LISTEN ||
+        HL_GetMode() == MODE_MASTER_PAIR ||
+        HL_GetMode() == MODE_DTMF_ANI)
     {
         return;
     }
@@ -66,11 +66,11 @@ void BatteryLowFlash(void)
 {
     static U8 flash;
     
-    if (g_sysRunPara.sysRunMode == MODE_HL_MENU ||
-        g_sysRunPara.sysRunMode == MODE_DASHBOARD ||
-        g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN ||
-        g_sysRunPara.sysRunMode == MODE_MASTER_PAIR ||
-        g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
+    if (HL_GetMode() == MODE_HL_MENU ||
+        HL_GetMode() == MODE_DASHBOARD ||
+        HL_GetMode() == MODE_SLAVE_LISTEN ||
+        HL_GetMode() == MODE_MASTER_PAIR ||
+        HL_GetMode() == MODE_DTMF_ANI)
     {
         return;
     }
@@ -188,7 +188,7 @@ extern Boolean CheckPowerBusy(void)
 
 extern void PowerSaveTask(void)
 {
-    if(alarmDat.alarmStates || g_sysRunPara.sysRunMode == MODE_SCAN)
+    if(alarmDat.alarmStates || HL_GetMode() == MODE_SCAN)
     {//在报警模式或者是在扫描模式不省电
         return;
     }

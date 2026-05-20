@@ -167,7 +167,7 @@ void MasterPairTask(void)
         if (keyEvent == KEYID_EXIT)
         {
             // Exit Pairing Mode
-            g_sysRunPara.sysRunMode = MODE_HL_MENU;
+            HL_SetMode(MODE_HL_MENU);
             BeepOut(BEEP_EXITMENU);
             extern void UI_DisplayHlMenu(void);
             UI_DisplayHlMenu();
@@ -258,7 +258,7 @@ void SlaveListenTask(void)
         keyEvent = Key_GetRealEvent();
         if (keyEvent == KEYID_EXIT)
         {
-            g_sysRunPara.sysRunMode = MODE_HL_MENU;
+            HL_SetMode(MODE_HL_MENU);
             BeepOut(BEEP_EXITMENU);
             extern void UI_DisplayHlMenu(void);
             UI_DisplayHlMenu();
@@ -330,7 +330,7 @@ void SlaveListenTask(void)
                     DelayMs(100);
                     BeepOut(BEEP_FMSW2);
                     
-                    g_sysRunPara.sysRunMode = MODE_MAIN;
+                    HL_SetMode(MODE_MAIN);
                     ChannelCheckActiveAll(); // Refresh active channels
                     DisplayHomePage();
                     RxReset();
@@ -387,7 +387,7 @@ void BackgroundTelemetryTask(void)
                             g_slaveTelemetry[i].rssi = slaveRssi;
                             g_slaveTelemetry[i].isOnline = TRUE;
                             g_slaveTelemetry[i].lastActiveTime = 0; // reset timeout
-                            if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+                            if (HL_GetMode() == MODE_DASHBOARD)
                             {
                                 UI_DisplayDashboard();
                             }
@@ -406,7 +406,7 @@ void BackgroundTelemetryTask(void)
                 if (g_slaveTelemetry[i].lastActiveTime > 6) // ~60 seconds timeout
                 {
                     g_slaveTelemetry[i].isOnline = FALSE;
-                    if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+                    if (HL_GetMode() == MODE_DASHBOARD)
                     {
                         UI_DisplayDashboard();
                     }
@@ -796,7 +796,7 @@ void HL_RestoreOriginalChannel(void)
         BeepOut(BEEP_EXITMENU);
         
         // Redraw screen if in main menus
-        if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+        if (HL_GetMode() == MODE_DASHBOARD)
         {
             UI_DisplayDashboard();
         }
@@ -876,7 +876,7 @@ void HL_ProcessIncomingOTAP(const char *dtmfString)
         BeepOut(BEEP_LOWBAT);
         
         // Display alert on screen if on custom menus
-        if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+        if (HL_GetMode() == MODE_DASHBOARD)
         {
             UI_DisplayDashboard();
         }
@@ -935,7 +935,7 @@ void HL_TxVrfrModeA(U8 flagClose)
 
 extern void HL_Hook_OnPttPress(void)
 {
-    if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+    if (HL_GetMode() == MODE_DASHBOARD)
     {
         HL_TxVrfrModeA(0); // OPEN
     }
@@ -943,7 +943,7 @@ extern void HL_Hook_OnPttPress(void)
 
 extern void HL_Hook_OnPttRelease(void)
 {
-    if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+    if (HL_GetMode() == MODE_DASHBOARD)
     {
         HL_TxVrfrModeA(1); // CLOSE
     }
@@ -968,7 +968,7 @@ void HL_KeyProcess_Dashboard(U8 keyEvent)
 {
     if (keyEvent == KEYID_EXIT)
     {
-        g_sysRunPara.sysRunMode = MODE_HL_MENU;
+        HL_SetMode(MODE_HL_MENU);
         BeepOut(BEEP_EXITMENU);
         UI_DisplayHlMenu();
     }
@@ -982,7 +982,7 @@ void HL_KeyProcess_Menu(U8 keyEvent)
 {
     if (keyEvent == KEYID_EXIT)
     {
-        g_sysRunPara.sysRunMode = MODE_MAIN;
+        HL_SetMode(MODE_MAIN);
         BeepOut(BEEP_EXITMENU);
         extern void DisplayHomePage(void);
         DisplayHomePage();
@@ -1006,22 +1006,22 @@ void HL_KeyProcess_Menu(U8 keyEvent)
         BeepOut(BEEP_FASTSW);
         if (g_hlMenuIndex == 0)
         {
-            g_sysRunPara.sysRunMode = MODE_DASHBOARD;
+            HL_SetMode(MODE_DASHBOARD);
             UI_DisplayDashboard();
         }
         else if (g_hlMenuIndex == 1)
         {
-            g_sysRunPara.sysRunMode = MODE_MASTER_PAIR;
+            HL_SetMode(MODE_MASTER_PAIR);
             MasterPairInit();
         }
         else if (g_hlMenuIndex == 2)
         {
-            g_sysRunPara.sysRunMode = MODE_SLAVE_LISTEN;
+            HL_SetMode(MODE_SLAVE_LISTEN);
             UI_DisplaySlaveListen();
         }
         else if (g_hlMenuIndex == 3)
         {
-            g_sysRunPara.sysRunMode = MODE_DTMF_ANI;
+            HL_SetMode(MODE_DTMF_ANI);
             g_aniContactIndex = 0;
             UI_DisplayAniContacts();
         }
@@ -1032,7 +1032,7 @@ void HL_KeyProcess_AniContacts(U8 keyEvent)
 {
     if (keyEvent == KEYID_EXIT)
     {
-        g_sysRunPara.sysRunMode = MODE_HL_MENU;
+        HL_SetMode(MODE_HL_MENU);
         BeepOut(BEEP_EXITMENU);
         UI_DisplayHlMenu();
     }
@@ -1052,3 +1052,26 @@ void HL_KeyProcess_AniContacts(U8 keyEvent)
     }
 }
 
+
+
+void HL_SetMode(U8 newMode)
+{
+    // Sanitize state transition: keep within valid boundaries (0..16)
+    if (newMode <= 16)
+    {
+        g_sysRunPara.sysRunMode = newMode;
+    }
+    else
+    {
+        g_sysRunPara.sysRunMode = 0; // MODE_MAIN
+    }
+}
+
+U8 HL_GetMode(void)
+{
+    if (g_sysRunPara.sysRunMode > 16)
+    {
+        g_sysRunPara.sysRunMode = 0;
+    }
+    return g_sysRunPara.sysRunMode;
+}

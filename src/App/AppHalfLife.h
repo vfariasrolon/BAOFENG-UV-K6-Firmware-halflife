@@ -64,6 +64,9 @@ void HL_KeyProcess_Dashboard(U8 keyEvent);
 void HL_KeyProcess_Menu(U8 keyEvent);
 void HL_KeyProcess_AniContacts(U8 keyEvent);
 
+void HL_SetMode(U8 newMode);
+U8 HL_GetMode(void);
+
 
 extern U8 g_hlMenuIndex;
 extern U8 g_aniContactIndex;

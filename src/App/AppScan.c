@@ -110,7 +110,7 @@ extern void ScanStart(void)
     }
 
     ResetInputBuf();
-    g_sysRunPara.sysRunMode = MODE_SCAN;
+    HL_SetMode(MODE_SCAN);
     g_scanInfo.state = SCANNING;
     g_scanInfo.scanTime = 4;
     g_scanInfo.direction = SCAN_UP;
@@ -128,7 +128,7 @@ extern void ScanOff(void)
 {
     g_scanInfo.state = SCAN_IDLE;
     g_scanInfo.scanTime = 0;
-    g_sysRunPara.sysRunMode = MODE_MAIN;
+    HL_SetMode(MODE_MAIN);
     g_rfRxState = RX_READY;
 
     DisplayRadioHome();
@@ -139,7 +139,7 @@ extern void ScanTask(void)
 {
     static U8 sqCnt = 0;
 
-    if(g_sysRunPara.sysRunMode != MODE_SCAN)
+    if(HL_GetMode() != MODE_SCAN)
     {//不在扫描模式直接返回
         return;
     }
@@ -214,7 +214,7 @@ extern void ScanTask(void)
         case SCAN_STOP:
             g_scanInfo.state = SCAN_IDLE;
             g_scanInfo.scanTime = 0;
-            g_sysRunPara.sysRunMode = MODE_MAIN;
+            HL_SetMode(MODE_MAIN);
             g_rfRxState = RX_READY;
             ChannelNumChangeRead(0,1);
             sqCnt = 0;

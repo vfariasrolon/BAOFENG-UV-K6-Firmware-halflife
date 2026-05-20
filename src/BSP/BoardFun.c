@@ -190,7 +190,7 @@ extern void LCD_CheckBackLight(void)
         return;
     }
 
-    if(g_sysRunPara.sysRunMode == MODE_SEARCH || g_sysRunPara.sysRunMode == MODE_SCAN_QT)
+    if(HL_GetMode() == MODE_SEARCH || HL_GetMode() == MODE_SCAN_QT)
     {
         return;
     }

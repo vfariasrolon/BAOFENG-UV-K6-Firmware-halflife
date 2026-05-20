@@ -38,7 +38,7 @@ extern void ResumeFmMode(void)
     DualStandbyWorkOFF();    
     ResetInputBuf();
 
-    g_sysRunPara.sysRunMode = MODE_FM;
+    HL_SetMode(MODE_FM);
     fmInfo.mode = FM_READY;
 
     //现在收音机频率范围
@@ -405,7 +405,7 @@ extern void FmCheckTimeOut(void)
 {
     if(fmInfo.mode == FM_SLEEP)
     {
-        if(g_rfState == RF_RX && g_rfRxState <= GET_CALL && g_sysRunPara.sysRunMode == MODE_MAIN)
+        if(g_rfState == RF_RX && g_rfRxState <= GET_CALL && HL_GetMode() == MODE_MAIN)
         {//收发都在空闲状态时进入递减函数
             if(fmInfo.timeOut)
             {
@@ -413,7 +413,7 @@ extern void FmCheckTimeOut(void)
                 
                 if(fmInfo.timeOut == 0)
                 {
-                    g_sysRunPara.sysRunMode = MODE_FM;
+                    HL_SetMode(MODE_FM);
                     fmInfo.mode = FM_READY;
                     DualStandbyWorkOFF();
                     FmDisplayHome(); 
@@ -427,7 +427,7 @@ extern void FmCheckTimeOut(void)
     }
     else
     {
-        if(g_sysRunPara.sysRunMode != MODE_FM)
+        if(HL_GetMode() != MODE_FM)
         {//不在菜单模式，直接退出
             return;
         }
@@ -450,13 +450,13 @@ extern void EnterFmMode(void)
     DualStandbyWorkOFF();
 
     //如果在菜单模式，则退出菜单
-    if(g_sysRunPara.sysRunMode == MODE_MENU)
+    if(HL_GetMode() == MODE_MENU)
     {
         Menu_ExitMode();
     }
     ResetInputBuf();
 
-    g_sysRunPara.sysRunMode = MODE_FM;
+    HL_SetMode(MODE_FM);
     fmInfo.mode = FM_READY;
 
     if(g_FMInform.fmChVfo == CHAN_MODE)
@@ -493,7 +493,7 @@ extern void FMSwitchExit(void)
 
 extern void ExitFmMode(void)
 {
-    g_sysRunPara.sysRunMode = MODE_MAIN;
+    HL_SetMode(MODE_MAIN);
     ResetInputBuf();
     DualStandbyWorkOFF();
     
@@ -514,12 +514,12 @@ extern void ExitFmMode(void)
 
 extern void FmEnterSleepMode(void)
 {
-    if(g_sysRunPara.sysRunMode != MODE_FM)
+    if(HL_GetMode() != MODE_FM)
     {//如果不在收音机模式，直接返回
         return;
     }
     
-    g_sysRunPara.sysRunMode = MODE_MAIN;
+    HL_SetMode(MODE_MAIN);
     if(fmInfo.mode != FM_SLEEP)
     {
         RDA5807_PowerOff();
@@ -538,7 +538,7 @@ extern void FmTaskFunc(void)
 
     FmCheckTimeOut();
     
-    if(g_sysRunPara.sysRunMode != MODE_FM)
+    if(HL_GetMode() != MODE_FM)
     {//不在收音机模式，直接返回
         return;
     }

@@ -39,11 +39,11 @@ extern void DisplayStateBar(void)
 {
     U8 reverse;
 
-    if (g_sysRunPara.sysRunMode == MODE_HL_MENU ||
-        g_sysRunPara.sysRunMode == MODE_DASHBOARD ||
-        g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN ||
-        g_sysRunPara.sysRunMode == MODE_MASTER_PAIR ||
-        g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
+    if (HL_GetMode() == MODE_HL_MENU ||
+        HL_GetMode() == MODE_DASHBOARD ||
+        HL_GetMode() == MODE_SLAVE_LISTEN ||
+        HL_GetMode() == MODE_MASTER_PAIR ||
+        HL_GetMode() == MODE_DTMF_ANI)
     {
         return;
     }
@@ -376,7 +376,7 @@ extern void DisplayChannelMsg(U8 disMode,U8 disAB, U8 txOrRx)
         chNum = g_ChannelVfoInfo.channelNum[1];  
     }
 
-    if(g_sysRunPara.sysRunMode == MODE_SCAN)
+    if(HL_GetMode() == MODE_SCAN)
     {
         chNum = g_ChannelVfoInfo.currentChannelNum;
     }
@@ -461,11 +461,11 @@ extern void DisplayChannelName(U8 disAB)
 
 extern void DisplayRadioHome(void)
 {
-    if (g_sysRunPara.sysRunMode == MODE_DASHBOARD ||
-        g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN ||
-        g_sysRunPara.sysRunMode == MODE_MASTER_PAIR ||
-        g_sysRunPara.sysRunMode == MODE_HL_MENU ||
-        g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
+    if (HL_GetMode() == MODE_DASHBOARD ||
+        HL_GetMode() == MODE_SLAVE_LISTEN ||
+        HL_GetMode() == MODE_MASTER_PAIR ||
+        HL_GetMode() == MODE_HL_MENU ||
+        HL_GetMode() == MODE_DTMF_ANI)
     {
         return;
     }
@@ -545,30 +545,30 @@ extern void DisplayRadioHome(void)
 
 extern void DisplayHomePage(void)
 {
-    if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+    if (HL_GetMode() == MODE_DASHBOARD)
     {
         UI_DisplayDashboard();
         return;
     }
-    if (g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN)
+    if (HL_GetMode() == MODE_SLAVE_LISTEN)
     {
         extern void UI_DisplaySlaveListen(void);
         UI_DisplaySlaveListen();
         return;
     }
-    if (g_sysRunPara.sysRunMode == MODE_MASTER_PAIR)
+    if (HL_GetMode() == MODE_MASTER_PAIR)
     {
         extern void UI_DisplayMasterPair(void);
         UI_DisplayMasterPair();
         return;
     }
-    if (g_sysRunPara.sysRunMode == MODE_HL_MENU)
+    if (HL_GetMode() == MODE_HL_MENU)
     {
         extern void UI_DisplayHlMenu(void);
         UI_DisplayHlMenu();
         return;
     }
-    if (g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
+    if (HL_GetMode() == MODE_DTMF_ANI)
     {
         extern void UI_DisplayAniContacts(void);
         UI_DisplayAniContacts();
@@ -711,7 +711,7 @@ extern void DisplayRxMode(void)
 
 extern void DisplayTxMode(void)
 {
-    if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+    if (HL_GetMode() == MODE_DASHBOARD)
     {
         UI_DisplayDashboard();
         return;
@@ -778,7 +778,7 @@ U8 GetRxArea(void)
 extern void DisplaySingalFlag(U8 level,U8 UpdateF)
 {
     U8 iconY,flagY;
-    if(g_sysRunPara.sysRunMode != MODE_MAIN && g_sysRunPara.sysRunMode != MODE_MONI)
+    if(HL_GetMode() != MODE_MAIN && HL_GetMode() != MODE_MONI)
     {
         return;
     }
@@ -879,7 +879,7 @@ extern void DisplayAniMsg(U8 *pCallerId, U8 *pCalledId)
     U8 swAB;
     String nameBuf[16];
 
-    if(g_sysRunPara.sysRunMode != MODE_MAIN)
+    if(HL_GetMode() != MODE_MAIN)
     {
         return;
     }

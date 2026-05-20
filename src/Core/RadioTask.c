@@ -145,14 +145,14 @@ extern void Radio_EnterTxMode(void)
     GetDtmfEditCode();
 
     ExitAllFunction(0);
-    if(g_sysRunPara.sysRunMode == MODE_SCAN)
+    if(HL_GetMode() == MODE_SCAN)
     {
         if(g_scanInfo.state != WAIT_RECALL)   
         {
             ChannelNumChangeRead(0,1);
             g_scanInfo.state = SCAN_IDLE;
             g_scanInfo.scanTime = 0;
-            g_sysRunPara.sysRunMode = MODE_MAIN;
+            HL_SetMode(MODE_MAIN);
         }    
     }
 
@@ -392,7 +392,7 @@ extern void RF_TxTask(void)
             RfOff();
             Rfic_ConfigTxMode();
             
-            if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+            if (HL_GetMode() == MODE_DASHBOARD)
             {
                 HL_Hook_OnPttPress();
                 g_sysRunPara.rfTxFlag.totTime = g_radioInform.totLevel*150;
@@ -427,7 +427,7 @@ extern void RF_TxTask(void)
            }
            //DtmfRstMatchTimer(0);
 
-           if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+           if (HL_GetMode() == MODE_DASHBOARD)
            {
                HL_Hook_OnPttRelease();
            }
@@ -537,7 +537,7 @@ extern void RF_RxEnd(void)
         DualStandbyWorkOFF();
     }
 
-    if(g_sysRunPara.sysRunMode == MODE_SCAN_QT)
+    if(HL_GetMode() == MODE_SCAN_QT)
     {
         return;
     }
@@ -550,7 +550,7 @@ extern Boolean Rfic_CheckCtsState(void)
 {
     static U8 ctsCnt = 0;
 
-    if(g_sysRunPara.sysRunMode == MODE_WEATHER)
+    if(HL_GetMode() == MODE_WEATHER)
     {
         return TRUE;
     }
@@ -588,7 +588,7 @@ extern void RF_RxTask(void)
     switch(g_rfRxState)
     {
         case RX_READY:
-           if(g_sysRunPara.sysRunMode == MODE_WEATHER)
+           if(HL_GetMode() == MODE_WEATHER)
            {
                WeatherInit(g_radioInform.weatherNum);
            }
@@ -607,7 +607,7 @@ extern void RF_RxTask(void)
            }
            else
            {
-               if(dualStandby.dualOnFlag == OFF && (g_sysRunPara.sysRunMode == MODE_MAIN))
+               if(dualStandby.dualOnFlag == OFF && (HL_GetMode() == MODE_MAIN))
                {
                    DualStandbyWorkON();
                }
@@ -631,7 +631,7 @@ extern void RF_RxTask(void)
                g_sysRunPara.rfRxFlag.rxReceived = ON;
                LedRxSwitch(LED_ON); 
 
-               if(g_sysRunPara.sysRunMode != MODE_WEATHER)
+               if(HL_GetMode() != MODE_WEATHER)
                {
                    if(Rfic_CheckCtsState() == FALSE)
                    {
@@ -652,19 +652,19 @@ extern void RF_RxTask(void)
                }
                
                sqCnt = 0;
-               if(g_radioInform.fmInterrupt == 0 && g_sysRunPara.sysRunMode == MODE_FM)
+               if(g_radioInform.fmInterrupt == 0 && HL_GetMode() == MODE_FM)
                {//收音机开�?不允许打�?
                    return;
                }
                FmEnterSleepMode();
 
-               if(g_sysRunPara.sysRunMode == MODE_MAIN)
+               if(HL_GetMode() == MODE_MAIN)
                {
                    DisplayRxMode(); 
                }
                LCD_BackLightSetOn();
                Rfic_SetAfout(ON);
-               if(g_sysRunPara.sysRunMode != MODE_SCAN_QT)
+               if(HL_GetMode() != MODE_SCAN_QT)
                {
                    SpeakerSwitch(ON);
                }
@@ -685,7 +685,7 @@ extern void RF_RxTask(void)
                    LedRxSwitch(LED_OFF);
                }
 
-               if(g_sysRunPara.sysRunMode == MODE_SCAN || g_sysRunPara.sysRunMode == MODE_FM || g_sysRunPara.sysRunMode == MODE_SCAN_QT)
+               if(HL_GetMode() == MODE_SCAN || HL_GetMode() == MODE_FM || HL_GetMode() == MODE_SCAN_QT)
                {
                    return;
                }
@@ -770,7 +770,7 @@ extern void RF_RxTask(void)
                        }
                    }
                    
-                   if(ctcsDetFlag != 1 && g_sysRunPara.sysRunMode != MODE_SCAN_QT)
+                   if(ctcsDetFlag != 1 && HL_GetMode() != MODE_SCAN_QT)
                    {
                        SpeakerSwitch(ON);
                    }

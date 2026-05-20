@@ -13,19 +13,19 @@ extern void EnterStopWatchMode(void)
     g_stopWatch.minute = 0;
     g_stopWatch.second = 0;
 	
-    g_sysRunPara.sysRunMode = MODE_STOPWATCH;
+    HL_SetMode(MODE_STOPWATCH);
 
     StopWatchDisplayHome();
 }
 
 extern void ExitStopWatchMode(void)
 {
-    if(g_sysRunPara.sysRunMode != MODE_STOPWATCH)
+    if(HL_GetMode() != MODE_STOPWATCH)
     {
         return;
     }
     
-    g_sysRunPara.sysRunMode = MODE_MAIN;    
+    HL_SetMode(MODE_MAIN);    
    
     //切换为显示主界面
     DisplayHomePage();
@@ -87,7 +87,7 @@ extern void StopWatchDisplayTime(void)
 {
     String disBuf[16] = {0};
 
-    if(g_sysRunPara.sysRunMode != MODE_STOPWATCH)
+    if(HL_GetMode() != MODE_STOPWATCH)
     {
         return;
     }

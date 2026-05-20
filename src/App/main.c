@@ -51,7 +51,7 @@ int main(void)
             DelayMs(10);
             if(GetKeyCode() == KEYID_AB)
             {
-                g_sysRunPara.sysRunMode = MODE_SLAVE_LISTEN;
+                HL_SetMode(MODE_SLAVE_LISTEN);
                 BeepOut(BEEP_FMSW2);
                 break;
             }
@@ -73,9 +73,9 @@ int main(void)
     g_rfRxState = RX_READY;
     g_scanInfo.state = SCAN_IDLE;
     
-    if (g_sysRunPara.sysRunMode != MODE_SLAVE_LISTEN)
+    if (HL_GetMode() != MODE_SLAVE_LISTEN)
     {
-        g_sysRunPara.sysRunMode = MODE_MAIN;
+        HL_SetMode(MODE_MAIN);
     }
     g_keyScan.keyEvent = KEYID_NONE;
     

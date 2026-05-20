@@ -8,13 +8,13 @@ extern void EnterRemoteScanQTMode(void)
     DualStandbyWorkOFF();
 
     //如果在菜单模式，则退出菜单
-    if(g_sysRunPara.sysRunMode == MODE_MENU)
+    if(HL_GetMode() == MODE_MENU)
     {
         Menu_ExitMode();
     }
     ResetInputBuf();
 
-    g_sysRunPara.sysRunMode = MODE_SCAN_QT;
+    HL_SetMode(MODE_SCAN_QT);
     g_ScanQTInfo.state = SCANQT_STEPUP;
  
     QTScanDisplayHome();
@@ -22,7 +22,7 @@ extern void EnterRemoteScanQTMode(void)
 
 extern void ExitRemoteScanQTMode(void)
 {
-    g_sysRunPara.sysRunMode = MODE_MAIN;
+    HL_SetMode(MODE_MAIN);
     ResetInputBuf();
     DualStandbyWorkOFF();
 
@@ -34,7 +34,7 @@ extern void TaskRemoteScanQT(void)
 {
     static U8 sqCnt = 0;
 
-    if(g_sysRunPara.sysRunMode != MODE_SCAN_QT)
+    if(HL_GetMode() != MODE_SCAN_QT)
     {
         return;
     }

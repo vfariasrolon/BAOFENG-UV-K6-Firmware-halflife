@@ -14,7 +14,7 @@ extern void EnterSearchFreqMode(void)
     Rfic_SetAfout(OFF);
     LedRxSwitch(LED_OFF);
 
-    g_sysRunPara.sysRunMode = MODE_SEARCH;
+    HL_SetMode(MODE_SEARCH);
 
     searchFreqImofs.band = FREQ_BAND_UHF;
     searchFreqImofs.step = SF_Setup;
@@ -63,12 +63,12 @@ void SearchFreqModeBandSwitch(void)
 
 extern void ExitSearchFreqMode(U8  disHome)
 {
-    if( g_sysRunPara.sysRunMode != MODE_SEARCH )
+    if( HL_GetMode() != MODE_SEARCH )
     {
         return;
     }
     
-    g_sysRunPara.sysRunMode = MODE_MAIN;
+    HL_SetMode(MODE_MAIN);
     g_rfRxState = RX_READY;
     g_rfState = RF_RX;
 
@@ -148,7 +148,7 @@ extern void SearchFreqTask(void)
     U8 noise;
     U32 tempFreq;
 
-    if(g_sysRunPara.sysRunMode != MODE_SEARCH)
+    if(HL_GetMode() != MODE_SEARCH)
     {//不在扫频模式直接返回
         return;
     }

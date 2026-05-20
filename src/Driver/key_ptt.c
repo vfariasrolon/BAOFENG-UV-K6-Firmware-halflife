@@ -1,6 +1,7 @@
 #include "includes.h"
+#include "AppHalfLife.h"
 
-extern Boolean PTT_GetKeyVal(void)
+Boolean PTT_GetKeyVal(void)
 {
     if(GPIOA->IDR & GPIO_Pin_10)
     {
@@ -13,26 +14,25 @@ extern Boolean PTT_GetKeyVal(void)
 }
 
 
-extern void PTT_ScanTask(void)
+void PTT_ScanTask(void)
 {
     static U8 pttCnt;
     
     // If in custom Half-Life menus, PTT press instantly exits back to main frequency VFO
     if(PTT_GetKeyVal() == 0)
     {
-        if(g_sysRunPara.sysRunMode == MODE_HL_MENU ||
-           g_sysRunPara.sysRunMode == MODE_DTMF_ANI)
+        if(HL_GetMode() == MODE_HL_MENU ||
+           HL_GetMode() == MODE_DTMF_ANI)
         {
-            g_sysRunPara.sysRunMode = MODE_MAIN;
-            extern void DisplayHomePage(void);
-            extern void RxReset(void);
+            HL_SetMode(MODE_MAIN);
+            
             DisplayHomePage();
             RxReset();
         }
     }
     
     // Half-Life OTAP Modes intercept PTT key press to trigger provisioning
-    if(g_sysRunPara.sysRunMode == MODE_MASTER_PAIR || g_sysRunPara.sysRunMode == MODE_SLAVE_LISTEN)
+    if(HL_GetMode() == MODE_MASTER_PAIR || HL_GetMode() == MODE_SLAVE_LISTEN)
     {
         if(PTT_GetKeyVal() == 0)
         {
@@ -40,9 +40,8 @@ extern void PTT_ScanTask(void)
             if(pttCnt >= 3)
             {
                 pttCnt = 0;
-                if(g_sysRunPara.sysRunMode == MODE_MASTER_PAIR)
+                if(HL_GetMode() == MODE_MASTER_PAIR)
                 {
-                    extern void MasterPairTrigger(void);
                     MasterPairTrigger();
                 }
             }

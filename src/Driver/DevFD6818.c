@@ -937,7 +937,7 @@ void  Rfic_BandInitial(U32 freq)
     Rfic_WriteWord(0x38,(U16)calcFreq);
     Rfic_WriteWord(0x39,(U16)(calcFreq >> 16));
 
-    if(g_CurrentVfo->wideNarrow == BAND_WIDE || g_sysRunPara.sysRunMode == MODE_WEATHER)
+    if(g_CurrentVfo->wideNarrow == BAND_WIDE || HL_GetMode() == MODE_WEATHER)
     {
         Rfic_WriteWord(0x43,0x3028);
     }
