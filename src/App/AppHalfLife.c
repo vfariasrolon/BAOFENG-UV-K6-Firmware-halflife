@@ -11,6 +11,13 @@ U8 g_assignedIdCounter = 1;
 U8 g_hlMenuIndex = 0;
 U8 g_aniContactIndex = 0;
 
+// VRFR Tactical OTAP carrier (Mode A) globals
+static U32 s_originalFreqRx = 0;
+static U32 s_originalFreqTx = 0;
+static U8 s_originalScramble = 0;
+static Boolean s_isCurrentlyJumped = FALSE;
+static U32 s_jumpInactivityTimer = 0;
+
 // Custom Procedural Bitmaps for Scrambler Seeds (17x7 pixels)
 const U8 iconScr_Seed1[17] = {
     0x7F, 0x41, 0x41, 0x41, 0x5D, 0x55, 0x55, 0x55, 0x5D, 0x55, 0x55, 0x55, 0x5D, 0x41, 0x41, 0x41, 0x7F
@@ -338,6 +345,9 @@ void SlaveListenTask(void)
 // Heartbeat background telemetry task running periodically in background
 void BackgroundTelemetryTask(void)
 {
+    extern void HL_BackgroundInactivityTask(void);
+    HL_BackgroundInactivityTask();
+
     static U32 telemetryTimer = 0;
     telemetryTimer++;
     
@@ -542,6 +552,26 @@ void UI_DisplayDashboard(void)
         LCD_DisplayText(44, 45, (U8 *)"DETECTADOS", FONTSIZE_12x12, LCD_DIS_NORMAL);
     }
     
+    // Draw tactical alert overlay if temporarily jumped in VRFR Mode A
+    if (s_isCurrentlyJumped)
+    {
+        SC5260_ClearArea(2, 26, 98, 44, 1); // clear content area (black background)
+        LCD_DrawRectangle(2, 26, 98, 44, 1); // white outline inside black block
+        
+        LCD_DisplayText(4, 30, (U8 *)" ALERTA VRFR ", FONTSIZE_12x12, LCD_DIS_INVERT);
+        
+        char freqBuf[16];
+        // Format frequency as XXX.XXX
+        sprintf(freqBuf, "%d.%03d MHz", (int)(g_CurrentVfo->freqRx.frequency / 100000), (int)((g_CurrentVfo->freqRx.frequency / 100) % 1000));
+        LCD_DisplayText(20, 32, (U8 *)freqBuf, FONTSIZE_12x12, LCD_DIS_INVERT);
+        
+        char scrBuf[16];
+        sprintf(scrBuf, "SCRAMBLER:%02d", g_CurrentVfo->scarmble);
+        LCD_DisplayText(34, 32, (U8 *)scrBuf, FONTSIZE_12x12, LCD_DIS_INVERT);
+        
+        LCD_DisplayText(47, 30, (U8 *)" ENLACE ACTIVO", FONTSIZE_12x12, LCD_DIS_INVERT);
+    }
+    
     LCD_UpdateFullScreen();
 }
 
@@ -727,4 +757,163 @@ void UI_DisplayAniContacts(void)
     }
     
     LCD_UpdateFullScreen();
+}
+
+
+// --- VRFR Tactical OTAP carrier (Mode A) ---
+
+
+void HL_RestoreOriginalChannel(void)
+{
+    if (s_isCurrentlyJumped)
+    {
+        g_CurrentVfo->freqRx.frequency = s_originalFreqRx;
+        g_CurrentVfo->freqTx.frequency = s_originalFreqTx;
+        g_CurrentVfo->scarmble = s_originalScramble;
+        s_isCurrentlyJumped = FALSE;
+        
+        extern void Rfic_ConfigRxMode(void);
+        extern void Rfic_SetScramble(U8 group, U32 freq);
+        Rfic_ConfigRxMode();
+        Rfic_SetScramble(g_CurrentVfo->scarmble, g_CurrentVfo->rx->frequency);
+        
+        BeepOut(BEEP_EXITMENU);
+        
+        // Redraw screen if in main menus
+        if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+        {
+            UI_DisplayDashboard();
+        }
+    }
+}
+
+void HL_BackgroundInactivityTask(void)
+{
+    if (s_isCurrentlyJumped)
+    {
+        // If squelch is open (receiving carrier) or radio is transmitting, refresh the timer!
+        extern U8 g_rfState;
+        if (g_sysRunPara.rfRxFlag.rxReceiveOn == ON || g_rfState == 2) // RF_TX is constant 2
+        {
+            s_jumpInactivityTimer = 0;
+        }
+        else
+        {
+            s_jumpInactivityTimer++;
+            // 500 * 10ms = 5 seconds hang time before auto-restoring
+            if (s_jumpInactivityTimer >= 500)
+            {
+                HL_RestoreOriginalChannel();
+            }
+        }
+    }
+}
+
+void HL_ProcessIncomingOTAP(const char *dtmfString)
+{
+    // Format validation
+    if (dtmfString[0] == 'A' && dtmfString[11] == '#')
+    {
+        // Extract frequency
+        U32 decodedFreq = 0;
+        U8 i;
+        for (i = 3; i <= 8; i++)
+        {
+            decodedFreq = decodedFreq * 10 + (dtmfString[i] - '0');
+        }
+        decodedFreq *= 100; // to Hz
+        
+        // Extract Scrambler
+        U8 decodedScramble = (dtmfString[9] - '0') * 10 + (dtmfString[10] - '0');
+        if (decodedScramble > 4) decodedScramble = 0;
+        
+        // If decodedFreq is 0, this is a CLOSE/Restore command!
+        if (decodedFreq == 0)
+        {
+            HL_RestoreOriginalChannel();
+            return;
+        }
+        
+        // Save original state if not already jumped
+        if (!s_isCurrentlyJumped)
+        {
+            s_originalFreqRx = g_CurrentVfo->freqRx.frequency;
+            s_originalFreqTx = g_CurrentVfo->freqTx.frequency;
+            s_originalScramble = g_CurrentVfo->scarmble;
+            s_isCurrentlyJumped = TRUE;
+        }
+        
+        // Update active VFO
+        g_CurrentVfo->freqRx.frequency = decodedFreq;
+        g_CurrentVfo->freqTx.frequency = decodedFreq;
+        g_CurrentVfo->scarmble = decodedScramble;
+        
+        // Sintonizar hardware
+        extern void Rfic_ConfigRxMode(void);
+        extern void Rfic_SetScramble(U8 group, U32 freq);
+        Rfic_ConfigRxMode();
+        Rfic_SetScramble(g_CurrentVfo->scarmble, g_CurrentVfo->rx->frequency);
+        
+        s_jumpInactivityTimer = 0;
+        
+        // Military sounding warning beep (double alert!)
+        BeepOut(BEEP_LOWBAT);
+        
+        // Display alert on screen if on custom menus
+        if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+        {
+            UI_DisplayDashboard();
+        }
+    }
+}
+
+void HL_TxVrfrModeA(U8 flagClose)
+{
+    // Seed value can be retrieved from g_dtmfStore.machineId or a fixed cellular ID
+    U8 seed = 9; // Default cell ID 09
+    
+    memset(g_sysRunPara.txDtmfCode.code, 0xFF, 16);
+    
+    // Digit 0: 'A' -> 10
+    g_sysRunPara.txDtmfCode.code[0] = 10;
+    
+    // Digit 1-2: Seed
+    g_sysRunPara.txDtmfCode.code[1] = seed / 10;
+    g_sysRunPara.txDtmfCode.code[2] = seed % 10;
+    
+    if (flagClose)
+    {
+        // Digits 3-8: Freq = 000000
+        U8 i;
+        for (i = 3; i <= 8; i++)
+        {
+            g_sysRunPara.txDtmfCode.code[i] = 0;
+        }
+        // Digits 9-10: Scramble = 00
+        g_sysRunPara.txDtmfCode.code[9] = 0;
+        g_sysRunPara.txDtmfCode.code[10] = 0;
+    }
+    else
+    {
+        // Digits 3-8: Get current RX frequency in hundreds of Hz
+        U32 f = g_CurrentVfo->rx->frequency / 100;
+        U8 i;
+        for (i = 8; i >= 3; i--)
+        {
+            g_sysRunPara.txDtmfCode.code[i] = f % 10;
+            f /= 10;
+        }
+        // Digits 9-10: Scrambler
+        U8 scramble = g_CurrentVfo->scarmble;
+        g_sysRunPara.txDtmfCode.code[9] = scramble / 10;
+        g_sysRunPara.txDtmfCode.code[10] = scramble % 10;
+    }
+    
+    // Digit 11: '#' -> 15
+    g_sysRunPara.txDtmfCode.code[11] = 15;
+    g_sysRunPara.txDtmfCode.codeLen = 12;
+    
+    // Send it synchronously!
+    extern void DtmfSendCodeOn(U8 type);
+    DtmfSendCodeOn(DTMF_TYPEIN);
 }

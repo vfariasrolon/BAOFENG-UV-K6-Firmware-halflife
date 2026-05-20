@@ -391,6 +391,15 @@ extern void RF_TxTask(void)
             RfOff();
             Rfic_ConfigTxMode();
             
+            if (g_sysRunPara.sysRunMode == MODE_DASHBOARD)
+            {
+                extern void HL_TxVrfrModeA(U8 flagClose);
+                HL_TxVrfrModeA(0); // OPEN
+                g_sysRunPara.rfTxFlag.totTime = g_radioInform.totLevel*150;
+                g_rfTxState = WAIT_PTT_RELEASE;
+                break;
+            }
+            
             g_sysRunPara.rfTxFlag.totTime = g_radioInform.totLevel*150;
             g_rfTxState = WAIT_PTT_RELEASE;
             if(SetAlarmCode() == FALSE)

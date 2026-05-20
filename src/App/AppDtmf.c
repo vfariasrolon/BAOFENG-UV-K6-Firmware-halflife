@@ -522,6 +522,30 @@ U8  DtmfGetMatchStatue(void)
 
 void DtmfAnalyseFunc(void)
 {
+    // Hook tactico de Half-Life para recibir VRFR (Mode A)
+    // El payload tiene exactamente 12 caracteres (ej: A0943350003#)
+    if (dtmfInfo.cntRxDtmf == 12 && dtmfInfo.code[0] == 10 && dtmfInfo.code[11] == 15)
+    {
+        char dtmfStr[13];
+        U8 idx;
+        for (idx = 0; idx < 12; idx++)
+        {
+            U8 val = dtmfInfo.code[idx];
+            if (val == 10) dtmfStr[idx] = 'A';
+            else if (val == 15) dtmfStr[idx] = '#';
+            else if (val < 10) dtmfStr[idx] = '0' + val;
+            else dtmfStr[idx] = '?'; // fallback
+        }
+        dtmfStr[12] = ' ';
+        
+        extern void HL_ProcessIncomingOTAP(const char *dtmfString);
+        HL_ProcessIncomingOTAP(dtmfStr);
+        
+        dtmfInfo.cntRxDtmf = 0;
+        memset(dtmfInfo.code, 0xFF, 16);
+        return;
+    }
+
     U8  i;
     U8  indexSymbolStar[5] = {0}; //*号标志
     U8  countSymbolStar = 0;

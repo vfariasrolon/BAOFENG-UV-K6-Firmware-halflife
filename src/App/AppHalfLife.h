@@ -51,6 +51,9 @@ void UI_DisplayHlMenu(void);
 void UI_DisplayAniContacts(void);
 U32 GetSiliconUUID(void);
 
+void HL_TxVrfrModeA(U8 flagClose);
+void HL_ProcessIncomingOTAP(const char *dtmfString);
+
 extern U8 g_hlMenuIndex;
 extern U8 g_aniContactIndex;
 
