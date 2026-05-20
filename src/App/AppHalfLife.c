@@ -440,20 +440,73 @@ void BackgroundTelemetryTask(void)
 }
 
 // Gorgeous Industrial Telemetry Dashboard Renderer
+static void GetRotatedChar8x16(char ch, U8 *outBuf)
+{
+    U8 inBuf[16];
+    extern void Font_Read_8x16_ASCII( uint8_t *pString, uint8_t *pdat );
+    Font_Read_8x16_ASCII((U8 *)&ch, inBuf);
+    
+    memset(outBuf, 0, 16);
+    for (U8 c_rot = 0; c_rot < 16; c_rot++)
+    {
+        U8 colByte = 0;
+        U8 r = c_rot; // original row is rotated column
+        for (U8 r_rot = 0; r_rot < 8; r_rot++)
+        {
+            U8 c = 7 - r_rot; // original column
+            // Get original pixel bit at (r, c)
+            U8 bit = (inBuf[c * 2 + (r / 8)] >> (r % 8)) & 1;
+            colByte |= (bit << r_rot);
+        }
+        outBuf[c_rot] = colByte;
+    }
+}
+
+static void DrawHalfLifeBranding(void)
+{
+    // Draw solid black block on the left (Y=2..62, X=2..23)
+    SC5260_ClearArea(2, 2, 22, 60, 1);
+    
+    // Draw dividing line at X=24
+    SC5260_ClearArea(2, 24, 1, 60, 1);
+    
+    // Draw rotated "H A L F" in white (inverted)
+    U8 rotBuf[16];
+    
+    // 'H' at Y = 8, X = 4
+    GetRotatedChar8x16('H', rotBuf);
+    SC5260_DisplayArea(8, 4, 16, 8, rotBuf, 1);
+    
+    // 'A' at Y = 21, X = 4
+    GetRotatedChar8x16('A', rotBuf);
+    SC5260_DisplayArea(21, 4, 16, 8, rotBuf, 1);
+    
+    // 'L' at Y = 34, X = 4
+    GetRotatedChar8x16('L', rotBuf);
+    SC5260_DisplayArea(34, 4, 16, 8, rotBuf, 1);
+    
+    // 'F' at Y = 47, X = 4
+    GetRotatedChar8x16('F', rotBuf);
+    SC5260_DisplayArea(47, 4, 16, 8, rotBuf, 1);
+}
+
 void UI_DisplayDashboard(void)
 {
     SC5260_ClearArea(0, 0, 128, 64, 0);
     
-    // Draw terminal-style premium frame
+    // Draw outer frame
     LCD_DrawRectangle(0, 0, 128, 64, 0);
     LCD_DrawRectangle(1, 1, 126, 62, 0);
     
-    // Header title inverted retro box
-    LCD_DrawRectangle(3, 4, 120, 11, 1);
-    LCD_DisplayText(4, 12, (U8 *)"ROIP CEDIS STATUS", FONTSIZE_12x12, LCD_DIS_INVERT);
+    // Draw left-side branding
+    DrawHalfLifeBranding();
+    
+    // Title on the right
+    LCD_DrawRectangle(3, 26, 98, 11, 1);
+    LCD_DisplayText(4, 45, (U8 *)"TELEMETRIA", FONTSIZE_12x12, LCD_DIS_INVERT);
     
     // Subheaders
-    LCD_DisplayText(18, 6, (U8 *)"ID BATERIA RSSI  ESTADO", FONTSIZE_12x12, LCD_DIS_NORMAL);
+    LCD_DisplayText(18, 27, (U8 *)"ID BAT  RSSI  ST", FONTSIZE_12x12, LCD_DIS_NORMAL);
     
     // Grid listing of Slaves status
     U8 idx;
@@ -461,102 +514,93 @@ void UI_DisplayDashboard(void)
     for (idx = 0; idx < 3 && idx < g_slaveCount; idx++)
     {
         STR_SLAVE_TELEMETRY *s = &g_slaveTelemetry[idx];
-        char lineBuf[30];
+        char lineBuf[32];
         
-        // Render Signal Quality as a DBm/RSSI indicator
         int rssiDb = -110 + (s->rssi * 50 / 255);
-        if (s->rssi == 255) rssiDb = 0; // unassigned/perfect
+        if (s->rssi == 255) rssiDb = 0;
         
-        sprintf(lineBuf, "%02d  %d%%   -%2ddB  %s", 
+        sprintf(lineBuf, "%02d %3d%% -%2ddB %s", 
                 s->id, 
                 s->battery, 
                 abs(rssiDb),
-                s->isOnline ? "ACTIVO" : "PERDIDO");
+                s->isOnline ? "OK" : "KO");
                 
-        LCD_DisplayText(posY, 6, (U8 *)lineBuf, FONTSIZE_12x12, LCD_DIS_NORMAL);
+        LCD_DisplayText(posY, 27, (U8 *)lineBuf, FONTSIZE_12x12, LCD_DIS_NORMAL);
         posY += 10;
     }
     
     if (g_slaveCount == 0)
     {
-        LCD_DisplayText(36, 12, (U8 *)"NO SE DETECTAN", FONTSIZE_12x12, LCD_DIS_NORMAL);
-        LCD_DisplayText(46, 12, (U8 *)"DISPOSITIVOS", FONTSIZE_12x12, LCD_DIS_NORMAL);
+        LCD_DisplayText(32, 42, (U8 *)"SIN EQUIPOS", FONTSIZE_12x12, LCD_DIS_NORMAL);
+        LCD_DisplayText(44, 45, (U8 *)"DETECTADOS", FONTSIZE_12x12, LCD_DIS_NORMAL);
     }
     
     LCD_UpdateFullScreen();
 }
 
-// Slave listening UI Screen
 void UI_DisplaySlaveListen(void)
 {
     SC5260_ClearArea(0, 0, 128, 64, 0);
     
-    // Outer Industrial Border
+    // Draw outer frame
     LCD_DrawRectangle(0, 0, 128, 64, 0);
-    LCD_DrawRectangle(2, 2, 124, 60, 0);
+    LCD_DrawRectangle(1, 1, 126, 62, 0);
     
-    LCD_DrawRectangle(4, 6, 116, 13, 1);
-    LCD_DisplayText(5, 14, (U8 *)"HALF-LIFE OTAP", FONTSIZE_16x16, LCD_DIS_INVERT);
+    // Draw left-side branding
+    DrawHalfLifeBranding();
+    
+    // Title on the right
+    LCD_DrawRectangle(4, 26, 98, 11, 1);
+    LCD_DisplayText(5, 54, (U8 *)"ESCLAVO", FONTSIZE_12x12, LCD_DIS_INVERT);
     
     // Show hardware RSSI
     U8 rssiVal = Rfic_GetRssiVal();
-    char rssiBuf[20];
-    sprintf(rssiBuf, "RSSI: %3d  BAT: %2d%%", rssiVal, BatteryCalculateLevel());
-    LCD_DisplayText(22, 12, (U8 *)rssiBuf, FONTSIZE_12x12, LCD_DIS_NORMAL);
+    char rssiBuf[24];
+    sprintf(rssiBuf, "RSSI:%3d B:%2d%%", rssiVal, BatteryCalculateLevel());
+    LCD_DisplayText(20, 27, (U8 *)rssiBuf, FONTSIZE_12x12, LCD_DIS_NORMAL);
     
-    LCD_DisplayText(36, 12, (U8 *)"ESPERANDO MAESTRO", FONTSIZE_12x12, LCD_DIS_NORMAL);
+    LCD_DisplayText(34, 39, (U8 *)"ESPERANDO M.", FONTSIZE_12x12, LCD_DIS_NORMAL);
     
-    // Premium retro animated scanning dots
-    static U8 animationFrame = 0;
-    animationFrame = (animationFrame + 1) % 4;
-    char progressDots[6];
-    memset(progressDots, '.', animationFrame);
-    progressDots[animationFrame] = '\0';
-    
-    LCD_DisplayText(48, 12, (U8 *)"ENLACE ACTIVO", FONTSIZE_12x12, LCD_DIS_NORMAL);
-    LCD_DisplayText(48, 92, (U8 *)progressDots, FONTSIZE_12x12, LCD_DIS_NORMAL);
+    LCD_DisplayText(48, 42, (U8 *)"BUSCANDO...", FONTSIZE_12x12, LCD_DIS_NORMAL);
     
     LCD_UpdateFullScreen();
 }
 
-// Master pairing UI Screen
 void UI_DisplayMasterPair(void)
 {
     SC5260_ClearArea(0, 0, 128, 64, 0);
     
+    // Draw outer frame
     LCD_DrawRectangle(0, 0, 128, 64, 0);
-    LCD_DrawRectangle(2, 2, 124, 60, 0);
+    LCD_DrawRectangle(1, 1, 126, 62, 0);
     
-    LCD_DrawRectangle(4, 6, 116, 13, 1);
-    LCD_DisplayText(5, 10, (U8 *)"HALFLIFE MAESTRO", FONTSIZE_16x16, LCD_DIS_INVERT);
+    // Draw left-side branding
+    DrawHalfLifeBranding();
     
-    LCD_DisplayText(24, 12, (U8 *)"PRESIONE PTT PARA", FONTSIZE_12x12, LCD_DIS_NORMAL);
-    LCD_DisplayText(36, 12, (U8 *)"OTAP AUTO-ENLACE", FONTSIZE_12x12, LCD_DIS_NORMAL);
+    // Title on the right
+    LCD_DrawRectangle(4, 26, 98, 11, 1);
+    LCD_DisplayText(5, 54, (U8 *)"MAESTRO", FONTSIZE_12x12, LCD_DIS_INVERT);
     
-    char counterBuf[30];
-    sprintf(counterBuf, "ENLAZADOS: %02d Slaves", g_slaveCount);
-    LCD_DisplayText(48, 12, (U8 *)counterBuf, FONTSIZE_12x12, LCD_DIS_NORMAL);
+    LCD_DisplayText(20, 36, (U8 *)"PRESIONAR PTT", FONTSIZE_12x12, LCD_DIS_NORMAL);
+    LCD_DisplayText(34, 39, (U8 *)"PARA ENLAZAR", FONTSIZE_12x12, LCD_DIS_NORMAL);
+    
+    char counterBuf[32];
+    sprintf(counterBuf, "ENLAZADOS: %02d", g_slaveCount);
+    LCD_DisplayText(48, 33, (U8 *)counterBuf, FONTSIZE_12x12, LCD_DIS_NORMAL);
     
     LCD_UpdateFullScreen();
 }
 
-// Unified Half-Life Custom Menu Renderer with full dynamic vertical scrolling
 void UI_DisplayHlMenu(void)
 {
     SC5260_ClearArea(0, 0, 128, 64, 0);
     
-    // Draw premium industrial frame
+    // Draw outer frame
     LCD_DrawRectangle(0, 0, 128, 64, 0);
     LCD_DrawRectangle(1, 1, 126, 62, 0);
     
-    // Draw the vertical separating line at X=24
-    SC5260_ClearArea(2, 24, 1, 60, 1);
-    
-    // Draw vertical text "HALF" on the left column (X=9)
-    LCD_DisplayText(6, 9, (U8 *)"H", FONTSIZE_12x12, LCD_DIS_NORMAL);
-    LCD_DisplayText(18, 9, (U8 *)"A", FONTSIZE_12x12, LCD_DIS_NORMAL);
-    LCD_DisplayText(30, 9, (U8 *)"L", FONTSIZE_12x12, LCD_DIS_NORMAL);
-    LCD_DisplayText(42, 9, (U8 *)"F", FONTSIZE_12x12, LCD_DIS_NORMAL);
+    // Draw left-side branding
+    DrawHalfLifeBranding();
     
     // Render the items
     const char *menuItems[] = {
@@ -580,14 +624,14 @@ void UI_DisplayHlMenu(void)
     for (i = 0; i < 3; i++)
     {
         U8 item_idx = start_idx + i;
-        if (item_idx >= 4) break; // Safeguard if list is smaller
+        if (item_idx >= 4) break;
         
         U8 drawY = 8 + (i * 18);
         U8 isSelected = (item_idx == g_hlMenuIndex);
         
         if (isSelected)
         {
-            // Highlight the selected item with retro inverted box matching the stock menu!
+            // Highlight box matching layout
             LCD_DrawRectangle(drawY - 1, 26, 98, 14, 1);
             LCD_DisplayText(drawY + 1, 28, (U8 *)menuItems[item_idx], FONTSIZE_12x12, LCD_DIS_INVERT);
         }
@@ -600,32 +644,34 @@ void UI_DisplayHlMenu(void)
     LCD_UpdateFullScreen();
 }
 
-// DTMF ANI Contacts list scrollable renderer
 void UI_DisplayAniContacts(void)
 {
     SC5260_ClearArea(0, 0, 128, 64, 0);
     
-    // Draw premium industrial frame
+    // Draw outer frame
     LCD_DrawRectangle(0, 0, 128, 64, 0);
     LCD_DrawRectangle(1, 1, 126, 62, 0);
     
-    // Title header
-    LCD_DrawRectangle(3, 4, 120, 11, 1);
-    LCD_DisplayText(4, 16, (U8 *)"CONTACTOS DTMF", FONTSIZE_12x12, LCD_DIS_INVERT);
+    // Draw left-side branding
+    DrawHalfLifeBranding();
+    
+    // Title on the right
+    LCD_DrawRectangle(3, 26, 98, 11, 1);
+    LCD_DisplayText(4, 42, (U8 *)"AGENDA DTMF", FONTSIZE_12x12, LCD_DIS_INVERT);
     
     // Draw Own Machine ID
-    char ownIdBuf[20];
+    char ownIdBuf[24];
     char cleanOwnId[6];
     memset(cleanOwnId, 0, sizeof(cleanOwnId));
     U8 i;
-    for (i = 0; i < 4 && g_dtmfStore.machineId[i] != '\0' && g_dtmfStore.machineId[i] != 0xFF; i++)
+    for (i = 0; i < 4 && g_dtmfStore.machineId[i] != ' ' && g_dtmfStore.machineId[i] != 0xFF; i++)
     {
         cleanOwnId[i] = g_dtmfStore.machineId[i];
     }
-    sprintf(ownIdBuf, "ID PROPIO: %s", cleanOwnId);
-    LCD_DisplayText(18, 6, (U8 *)ownIdBuf, FONTSIZE_12x12, LCD_DIS_NORMAL);
+    sprintf(ownIdBuf, "PROPIO ID: %s", cleanOwnId);
+    LCD_DisplayText(18, 30, (U8 *)ownIdBuf, FONTSIZE_12x12, LCD_DIS_NORMAL);
     
-    // Grid listing of contacts (displaying 3 scrollable entries)
+    // Grid listing of contacts
     U8 idx;
     U8 posY = 29;
     
@@ -634,12 +680,12 @@ void UI_DisplayAniContacts(void)
         U8 contactIdx = (g_aniContactIndex + idx) % 20;
         STR_CONTACT *c = &dtmfInfo.contact[contactIdx];
         
-        char lineBuf[30];
+        char lineBuf[32];
         
-        // Clean name (remove any non-printable chars)
+        // Clean name
         char cleanName[12];
         memset(cleanName, 0, sizeof(cleanName));
-        for (i = 0; i < 10 && c->name[i] != '\0' && c->name[i] != 0xFF; i++)
+        for (i = 0; i < 10 && c->name[i] != ' ' && c->name[i] != 0xFF; i++)
         {
             cleanName[i] = c->name[i];
         }
@@ -647,28 +693,28 @@ void UI_DisplayAniContacts(void)
         // Clean ID
         char cleanId[6];
         memset(cleanId, 0, sizeof(cleanId));
-        for (i = 0; i < 4 && c->id[i] != '\0' && c->id[i] != 0xFF; i++)
+        for (i = 0; i < 4 && c->id[i] != ' ' && c->id[i] != 0xFF; i++)
         {
             cleanId[i] = c->id[i];
         }
         
-        if (cleanName[0] == '\0' || cleanName[0] == ' ')
+        if (cleanName[0] == ' ' || cleanName[0] == ' ')
         {
             sprintf(lineBuf, "%02d. [VACIO]", contactIdx + 1);
         }
         else
         {
-            sprintf(lineBuf, "%02d. %-6s -> %-4s", contactIdx + 1, cleanName, cleanId);
+            sprintf(lineBuf, "%02d.%s->%s", contactIdx + 1, cleanName, cleanId);
         }
         
-        if (idx == 0) // Currently selected active contact
+        if (idx == 0) // Selected
         {
-            LCD_DrawRectangle(posY, 4, 120, 10, 1);
-            LCD_DisplayText(posY + 1, 6, (U8 *)lineBuf, FONTSIZE_12x12, LCD_DIS_INVERT);
+            LCD_DrawRectangle(posY, 26, 98, 10, 1);
+            LCD_DisplayText(posY + 1, 28, (U8 *)lineBuf, FONTSIZE_12x12, LCD_DIS_INVERT);
         }
         else
         {
-            LCD_DisplayText(posY + 1, 6, (U8 *)lineBuf, FONTSIZE_12x12, LCD_DIS_NORMAL);
+            LCD_DisplayText(posY + 1, 28, (U8 *)lineBuf, FONTSIZE_12x12, LCD_DIS_NORMAL);
         }
         posY += 11;
     }
