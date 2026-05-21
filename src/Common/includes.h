@@ -1,64 +1,34 @@
-#ifndef _includes_h
-    #define _includes_h
+#ifndef _INCLUDES_H
+#define _INCLUDES_H
 
-#include <ctype.h>
+/*
+ * includes.h — Fase 1: Heartbeat Minimalista
+ *
+ * Versión de bootstrapping: reemplaza los headers de hardware originales
+ * (kd32f3xx.h, Board.h, PublType.h, keyboard.h, Beep.h, etc.) por
+ * stub_constants.h, que provee tipos, constantes y structs mínimas.
+ *
+ * Para restaurar la build completa, revertir a los includes originales
+ * una vez que los módulos de Driver/ y Common/ sean recuperados.
+ */
+
+/* --- Stdlib — siempre disponibles --- */
+#include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-//---------------------------
-#include "kd32f3xx.h" 
-#include "PublType.h"
-#include "Globe.h"
-#include "Delay.h"
-#include "BitMap.h"
 
-#include "Board.h"
-#include "BoardFun.h"
-#include "AddrMap_BFK6.h"
-#include "Systick.h"
-#include "Radio.h"
-#include "RadioTask.h"
-#include "Functions.h"
-#include "crc.h"
-#include "DevFD6818.h"
-#include "FlashDataMap.h"
-#include "FlashFont.h"
-#include "key_ptt.h"
-#include "keyboard.h"
-#include "NorFlash.h"
-#include "RadioDataReset.h"
-#include "RadioDataStorage.h"
-#include "Rda5807.h"
-#include "Sc5260.h"
-#include "AppMain.h"
-#include "AppMenu.h"
-#include "AppAlarm.h"
-#include "AppDtmf.h"
-#include "AppFm.h"
-#include "AppMoni.h"
-#include "AppScan.h"
-#include "AppScanQT.h"
-#include "AppSearch.h"
-#include "AppStopWatch.h"
-#include "AppTask.h"
-#include "AppWeather.h"
-#include "Battery.h"
-#include "DualStandby.h"
-#include "DisplayMain.h"
+/* --- Fase 1: Constantes, tipos y globals stub --- */
+#include "stub_constants.h"
+
+/* --- Fase 1: Prototipos de todas las funciones externas --- */
+#include "prototypes.h"
+
+/* --- AppHalfLife: lógica de misión Half-Life --- */
+#include "AppHalfLife.h"
+
+/* --- GUI mínima --- */
 #include "DisplayMenu.h"
-#include "DisplayBattery.h"
-#include "DisplayCheckPassword.h"
-#include "DisplayDtmf.h"
-#include "DisplayFm.h"
-#include "DisplayInputbox.h"
-#include "DisplayPowerOn.h"
-#include "DisplayScanQT.h"
-#include "DisplaySearch.h"
-#include "DisplayWeather.h"
-#include "LcdFillDot.h"
-#include "Beep.h"
-#include "VoiceBroadcast.h"
 
-#include "ProgromFlash.h"
-
-#endif
+#endif /* _INCLUDES_H */

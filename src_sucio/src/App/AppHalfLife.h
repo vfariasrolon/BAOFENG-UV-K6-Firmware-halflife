@@ -1,7 +1,7 @@
 #ifndef __APP_HALFLIFE_H
 #define __APP_HALFLIFE_H
 
-/* Tipos provistos por stub_constants.h via includes.h — no incluir de nuevo */
+#include "includes.h"
 
 // FSK Commands for CEDIS Logistics Ecosystem
 #define FSK_CMD_DISCOVER_PING     0x5A01

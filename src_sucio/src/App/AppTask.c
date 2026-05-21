@@ -12,7 +12,7 @@ void App_10msTask(void)
     RF_Task();
     KEY_ScanTask();
     PTT_ScanTask();
-    
+    FmTaskFunc();
     
     // Half-Life Background Telemetry scan
     BackgroundTelemetryTask();
@@ -23,20 +23,21 @@ extern void App_50msTask(void)
     g_50msFlag = FALSE;
 
     ScanTask();
-    
+    WeatherScanTask();
     DualStandbyTask();
-    
+    StopWatchDisplayTime();
     LCD_CheckBackLight();
 }
 
 extern void App_100msTask(void)
 {
     g_100msFlag = FALSE;
-    
-    
+    SearchFreqTask();
+    TaskRemoteScanQT();
     CheckExitMenu();
     CheckPowerOff();
     CheckAutoKeyLockTask();
+    CheckAutoKeyLockTask(); // redundant but safe
     LightFlashTask();
     VoxCheckTask();
 }
@@ -81,7 +82,19 @@ extern void AppRunTask(void)
            {
                keyEvent = Key_GetRealEvent();
  
-               
+               if(alarmDat.alarmStates)
+               {
+                   if(keyEvent == KEYID_SIDEKEY1 || keyEvent == KEYID_SIDEKEY2 || keyEvent == KEYID_SIDEKEYL1)
+                   {
+                       keyEvent = Sidekey_GetRemapEvent(keyEvent);
+ 
+                       if(keyEvent == KEYID_SOS)
+                       {
+                           AlarmFuncSwitch(OFF);
+                       }
+                   }
+                   break;
+               }
                
                switch(HL_GetMode())
                {
@@ -113,7 +126,7 @@ extern void AppRunTask(void)
                        }
                        break;
                    case MODE_FM:
-                       
+                       KeyProcess_Fm(keyEvent);
                        break;  
                    case MODE_MONI:
                        KeyProcess_Moni(keyEvent);
@@ -122,16 +135,16 @@ extern void AppRunTask(void)
                        KeyProcess_Scan(keyEvent);
                        break; 
                    case MODE_SEARCH:
-                       
+                       KeyProcess_Search(keyEvent);
                        break;  
                    case MODE_SCAN_QT:
-                       
+                       KeyProcess_ScanQt(keyEvent);
                        break;     
                    case MODE_WEATHER:
-                       
+                       KeyProcess_Weather(keyEvent);
                        break;  
                    case MODE_STOPWATCH:
-                       
+                       KeyProcess_StopWatch(keyEvent);
                        break;    
                    case MODE_DTMF:
                        KeyProcess_DtmfInput(keyEvent);

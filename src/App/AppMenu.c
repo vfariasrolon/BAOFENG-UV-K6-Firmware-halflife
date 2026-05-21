@@ -1,4 +1,5 @@
 #include "includes.h"
+#include "KD32f328_iwdg.h" 
 
 STR_MENUINFO  g_menuInfo;
 
@@ -39,323 +40,162 @@ extern U32 loadCtcssVal(U16 ctcss)
     return i;
 }
 
+
+void DelayWDT(uint16_t ms) {
+    for(uint16_t i = 0; i < ms; i++) {
+        DelayMs(1);
+        IWDG_ReloadCounter(); // Mantiene al perro dormido cada 1 milisegundo
+    }
+}
+
+extern void PlayRogerPreview(U8 val)
+{
+    U8 rogerVol = g_radioInform.remain0[1];
+    if (rogerVol == 0 || rogerVol > 255) rogerVol = 90;
+    
+    if (val == 0) return; // OFF
+    
+    Rfic_EnterDTMFMode(0);
+    Rfic_WriteWord(0x70, (rogerVol << 8) | rogerVol);
+    Rfic_RxTxOnOffSetup(RFIC_TONE);
+    Rfic_SetAfout(3);
+    SpeakerSwitch(ON);
+    
+    DelayWDT(10); // <--- Estabiliza el voltaje antes de sonar
+    
+    switch (val)
+    {
+        case 1: // Preset 1: Classic Double Chirp
+            Rfic_SetToneFreq(100); 
+            DelayWDT(60);
+            Rfic_SetToneFreq(80);  
+            DelayWDT(60);
+            break;
+            
+        case 2: // Preset 2: Sharp Single Beep
+            Rfic_SetToneFreq(120); 
+            DelayWDT(80);
+            break;
+            
+        case 3: // Preset 3: Triple Quiki
+            Rfic_SetToneFreq(120); 
+            DelayWDT(40);
+            Rfic_SetToneFreq(100); 
+            DelayWDT(40);
+            Rfic_SetToneFreq(120); 
+            DelayWDT(40);
+            break;
+            
+        case 4: // Preset 4: Laser Chirp
+            Rfic_SetToneFreq(150); 
+            DelayWDT(40);
+            Rfic_SetToneFreq(120); 
+            DelayWDT(40);
+            break;
+
+        case 5: // Preset 5: Clon Nextel (Triple Alerta R√°pida)
+            Rfic_SetToneFreq(180); 
+            DelayWDT(35);
+            Rfic_SetToneFreq(0);   // Silencio
+            DelayWDT(25);
+            Rfic_SetToneFreq(180); 
+            DelayWDT(35);
+            Rfic_SetToneFreq(0);   // Silencio
+            DelayWDT(25);
+            Rfic_SetToneFreq(180); 
+            DelayWDT(45);
+            break;
+            
+        case 6: // Preset 6: "Moneda Retro" (Tipo Mario Bros Arcade)
+            Rfic_SetToneFreq(98);  
+            DelayWDT(40);
+            Rfic_SetToneFreq(132); 
+            DelayWDT(80);
+            break;
+            
+        default:
+            break;
+    }
+    
+    SpeakerSwitch(OFF);
+    Rfic_SetToneFreq(0);
+    Rfic_ExitDTMFMode();
+}
+
+extern void ApplyCalibrationCalibrationSPI(U8 index, U16 val)
+{
+    switch(index)
+    {
+        case S_MICGAIN:
+            Rfic_WriteWord(0x7D, 0xE940 | (val & 0x1F));
+            break;
+        case S_ROGERVOL:
+            Rfic_WriteWord(0x70, (val << 8) | val);
+            PlayRogerPreview(g_radioInform.remain0[3] ? g_radioInform.remain0[3] : 1);
+            break;
+        case S_SQL:
+            Rfic_WriteWord(0x48, 0x8000 | (val << 4) | 0x02); 
+            break;
+        case S_ROGE:
+            PlayRogerPreview(val);
+            break;
+        case S_TXPR:
+            if(val == 0) {
+                Rfic_WriteWord(0x43, 0x3028); // Low power 
+            } else {
+                Rfic_WriteWord(0x43, 0x4048); // High power
+            }
+            g_radioInform.txPower = val;
+            break;
+
+
+    }
+}
+
 extern void Menu_GetSubItemPara(U8 menuIndex)
 {
     g_menuInfo.inputMode = MENU_ONE_SELECT;
     switch(menuIndex)
     {
-        case S_CHNAME:
-            g_menuInfo.inputMode = MENU_ONE_CHAR;
-            g_inputbuf.maxLen = 12;
-            g_inputbuf.isFirstInput = 0xaa;
-        
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == VFO_MODE)
-            {//∆µ¬ ƒ£ Ω≤ª–Ë“™…Ë÷√–≈µ¿√˚≥∆
-                g_menuInfo.selectedItem = 0xFFFF;
-                break;
-            }
-        
-            if(!(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].channelName[0] == 0xFF || g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].channelName[0] == 0x00))
-            {
-                g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].channelName[12] = 0;
-                g_inputbuf.len = sprintf(g_inputbuf.buf,"%s",g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].channelName);
-            }
-            g_menuInfo.selectedItem = 0;
+        case S_MICGAIN:
+            g_menuInfo.subMaxItem = 32;
+            g_menuInfo.selectedItem = g_radioInform.remain0[0];
+            if (g_menuInfo.selectedItem > 31) g_menuInfo.selectedItem = 26;
             break;
-        case S_RXFREQ:
-            g_menuInfo.inputMode = MENU_CH_FREQ;
-            g_menuInfo.selectedItem = g_CurrentVfo->rx->frequency;
-            break;
-        case S_TXFREQ:
-            g_menuInfo.inputMode = MENU_CH_FREQ;
-            g_menuInfo.selectedItem = g_CurrentVfo->tx->frequency;
-            break;
-        case S_RXCTS:
-            g_menuInfo.inputMode = MENU_ONE_CTCSS;
-            g_menuInfo.subMaxItem = 51;
-            g_menuInfo.selectedItem = loadCtcssVal(g_CurrentVfo->rx->dcsCtsNum);
-            
-            break;    
-        case S_RXDCS:
-            g_menuInfo.inputMode = MENU_ONE_DECODE;
-            g_menuInfo.subMaxItem = 212;
-
-            if((g_CurrentVfo->rx->dcsCtsNum & 0xA0000000) == 0XA0000000)
-            {//Ω´∆∆¬ÎπÃ∂®Œ™211
-                g_menuInfo.selectedItem = 211;
-                g_sysRunPara.decoderCode = g_CurrentVfo->rx->dcsCtsNum;
-            }
-            else if(g_CurrentVfo->rx->dcsCtsNum  > 210)
-            {
-                g_menuInfo.selectedItem =  0;
-            }
-            else
-            {
-                g_menuInfo.selectedItem = g_CurrentVfo->rx->dcsCtsNum;
-            }
-            break;
-        case S_TXCTS: 
-            g_menuInfo.inputMode = MENU_ONE_CTCSS;
-            g_menuInfo.subMaxItem = 51;
-            g_menuInfo.selectedItem = loadCtcssVal(g_CurrentVfo->tx->dcsCtsNum);
-            break;
-        case S_TXDCS: 
-            g_menuInfo.inputMode = MENU_ONE_DECODE;
-            g_menuInfo.subMaxItem = 212;
-            if((g_CurrentVfo->tx->dcsCtsNum & 0xA0000000) == 0XA0000000)
-            {//Ω´∆∆¬ÎπÃ∂®Œ™211
-                g_menuInfo.selectedItem = 211;
-                g_sysRunPara.decoderCode = g_CurrentVfo->rx->dcsCtsNum;
-            }
-            else if(g_CurrentVfo->tx->dcsCtsNum  > 210)
-            {
-                g_menuInfo.selectedItem =  0;
-            }
-            else
-            {
-                g_menuInfo.selectedItem = g_CurrentVfo->tx->dcsCtsNum;
-            }
-            break;
-        case S_WN: 
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_CurrentVfo->wideNarrow;
-            break;
-        case S_TXPR: 
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_CurrentVfo->txPower;
-            break;
-        case S_SPMUTE:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_CurrentVfo->spMute;
-            break;
-        case S_TXFORBID:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.txForbid;
-            break;
-        case S_SFTD:
-            g_menuInfo.subMaxItem = 3;
-            g_menuInfo.selectedItem = g_CurrentVfo->freqDir;
-            break;
-        case S_OFFSE:
-            g_menuInfo.inputMode = MENU_ONE_FREQ;
-            g_menuInfo.selectedItem = g_CurrentVfo->freqOffset;
-            g_menuInfo.inputVal = g_menuInfo.selectedItem;
-            break;
-        case S_MEMCH: 
-        case S_DELCH:
-            g_menuInfo.subMaxItem = 999;
-            g_menuInfo.inputMode = MENU_ONE_CODE;
-            g_menuInfo.selectedItem = g_ChannelVfoInfo.channelNum[g_ChannelVfoInfo.switchAB];
-            break;
-        case S_VFOSCAN:
-            g_menuInfo.inputMode = MENU_ONE_VFOSCAN;
-            g_menuInfo.selectedItem = g_radioInform.vfoScanRangeH+g_radioInform.vfoScanRangeL*1000L;
-            break;
-        case S_SCREV:
-            g_menuInfo.subMaxItem = 3;
-            g_menuInfo.selectedItem = g_radioInform.scanMode;
-            break;
-        case S_DTST:
-            g_menuInfo.subMaxItem = 4;
-            g_menuInfo.selectedItem = g_radioInform.dtmfTone;
-            break;
-        case S_PTTID: 
-            g_menuInfo.subMaxItem = 4;
-            g_menuInfo.selectedItem = g_CurrentVfo->pttIdMode;
-            break;
-        case S_PTTLT:
-            g_menuInfo.subMaxItem = 7;
-            g_menuInfo.selectedItem = g_radioInform.pttIdTime;
+        case S_ROGERVOL:
+            g_menuInfo.subMaxItem = 256;
+            g_menuInfo.selectedItem = g_radioInform.remain0[1];
+            if (g_menuInfo.selectedItem > 255) g_menuInfo.selectedItem = 224;
             break;
         case S_SQL:
-            g_menuInfo.subMaxItem = 10;
-            g_menuInfo.selectedItem = g_radioInform.sqlLevel;
+            g_menuInfo.subMaxItem = 256;
+            g_menuInfo.selectedItem = g_radioInform.remain0[2];
+            if (g_menuInfo.selectedItem > 255) g_menuInfo.selectedItem = 120;
             break;
-        case S_SAVE:
-            g_menuInfo.subMaxItem = 4;
-            g_menuInfo.selectedItem = g_radioInform.saveLevel;
-            break;
-        case S_VOX:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.voxSwitch;
-            break;
-        case S_VOXLV: 
-            g_menuInfo.inputMode = MENU_ONE_CODE;
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.voxLevel;
-            break;
-        case S_VOXDLY:
-            g_menuInfo.subMaxItem = 16;
-            g_menuInfo.selectedItem = g_radioInform.voxDelay;
-            break;
-        case S_TOT:
-            g_menuInfo.subMaxItem = 13;
-            g_menuInfo.selectedItem = g_radioInform.totLevel;
-            break;
-        case S_LAN:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.language;
-            break;
-        case S_VOIC:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.voiceSw;
-            break;
-        case S_MENUEXIT:
-            g_menuInfo.subMaxItem = 11;
-            g_menuInfo.selectedItem = g_radioInform.menuExitTime;
-            break;
-        case S_BEEP:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.beepsSwitch;
-            break;
-        case S_ROGE: 
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.txOffTone;
-            break;
-        case S_BUSYLOCK: 
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_CurrentVfo->busyLock;
-            break;
-        case S_PONTYPE:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.OpFlag1.Bit.b0;
-            break;
-        case S_PONTONE:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.OpFlag1.Bit.b2;
-            break;
-        case S_PONMSG:
-            g_menuInfo.inputMode = MENU_ONE_CHAR;
-            g_inputbuf.maxLen = 16;
-            g_inputbuf.isFirstInput = 0xaa;
-        
-            //√˚≥∆Œ¥…Ë÷√
-            if(!(powerOnMsg[0] == 0xFF || powerOnMsg[0] == 0x00))
-            {
-                g_inputbuf.len = sprintf(g_inputbuf.buf,"%s",powerOnMsg);
-            }
-            g_menuInfo.selectedItem = 0;
-            break;
-        case S_PWR:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.pwrPwdFlag;
-            break;
-        case S_TDR:
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.dualRxFlag;
-            break;
-        case S_MDF1: 
-            g_menuInfo.subMaxItem = 4;
-            g_menuInfo.selectedItem = g_radioInform.channleDisA;
-            break;
-        case S_MDF2: 
-            g_menuInfo.subMaxItem = 4;
-            g_menuInfo.selectedItem = g_radioInform.channleDisB;
-            break;
-        case S_RPSTE:
-            g_menuInfo.subMaxItem = 11;
-            g_menuInfo.selectedItem = g_radioInform.rpste;
-            break;
-        case S_RPTRL:
-            g_menuInfo.subMaxItem = 11;
-            g_menuInfo.selectedItem = g_radioInform.rptrl;
-            break;
-        case S_RTONE: 
-            g_menuInfo.subMaxItem = 4;
-            g_menuInfo.selectedItem = g_radioInform.rtone;
-            break;
-        case S_STEP: 
-            g_menuInfo.subMaxItem = 8;
-            g_menuInfo.selectedItem = g_CurrentVfo->freqStep;
-            break;
-        case S_TAIL:  
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.tailSwitch;
-            break;
-        case S_ALMOD: 
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.alarmMode;
-            break;
-        case S_SK1:
+        case S_ROGE:
             g_menuInfo.subMaxItem = 7;
-            g_menuInfo.selectedItem = g_radioInform.userSideKey[0];
+            g_menuInfo.selectedItem = g_radioInform.remain0[3];
+            if (g_menuInfo.selectedItem > 4) g_menuInfo.selectedItem = 1;
             break;
-        case S_SKL1:
-            g_menuInfo.subMaxItem = 7;
-            g_menuInfo.selectedItem = g_radioInform.userSideKey[1];
-            break;
-        case S_SK2:
-            g_menuInfo.subMaxItem = 7;
-            g_menuInfo.selectedItem = g_radioInform.userSideKey[2];
-            break;
-        case S_ABR:  
-            g_menuInfo.subMaxItem = 5;
-            g_menuInfo.selectedItem = g_radioInform.autoBack;
-            break;
-        case S_BRIGHT:
-            g_menuInfo.inputMode = MENU_ONE_CODE;
-            g_menuInfo.subMaxItem = 5;
-            g_menuInfo.selectedItem = g_radioInform.brightness;
-            break;
-        case S_REFLEX:
+        case S_TXPR:
             g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.DisplayStyles&0x01;
+            g_menuInfo.selectedItem = g_radioInform.txPower;
             break;
-        case S_AUTOLK: 
-            g_menuInfo.subMaxItem = 4;
-            g_menuInfo.selectedItem = g_radioInform.keyAutoLock;
-            break;
-        case S_FMINT: 
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = g_radioInform.fmInterrupt&0x01;
-            break;
-        case S_RESET:  
-            g_menuInfo.subMaxItem = 2;
-            g_menuInfo.selectedItem = 0;
-            break;
-        case S_WATCH:
-            g_menuInfo.subMaxItem = 1;
-            g_menuInfo.selectedItem = 0;
-            break;
-        case S_INFO:
         default:
-            g_menuInfo.inputMode = MENU_ONE_NULL;
-            g_menuInfo.subMaxItem = 2;
+            g_menuInfo.subMaxItem = 0;
             g_menuInfo.selectedItem = 0;
             break;
     }
 }
 
-extern void Menu_GetFmSubItemPara(U8 menuIndex)
-{
-    g_menuInfo.inputMode = MENU_ONE_SELECT;
-    switch(menuIndex)
-    {
-        case 0: 
-            g_menuInfo.subMaxItem = 30;
-            g_menuInfo.selectedItem = g_FMInform.fmChNum;
-            break;
-        case 1:     
-        default:    
-            g_menuInfo.subMaxItem = 2;
-            if(g_FMInform.fmChVfo == CHAN_MODE)
-            {//–≈µ¿ƒ£ Ω
-                g_menuInfo.selectedItem = 0xFFFF;
-            }
-            else
-            {
-                g_menuInfo.selectedItem = fmInfo.band;
-            }
-            break;
-    }
-}
+
 
 extern void Menu_EnterMode(void)
 {
     ResetInputBuf();
 
     LCD_ClearWorkArea();
-    //πÿ±’À´ ÿπ¶ƒ‹
+    //ÂÖ≥Èó≠ÂèåÂÆàÂäüËÉΩ
     DualStandbyWorkOFF();
     g_menuInfo.menuMaxItem = MENU_MAX_CNT;
     g_menuInfo.isSubMenu = 0;
@@ -364,40 +204,42 @@ extern void Menu_EnterMode(void)
     g_menuInfo.inputLen = 0;
     g_menuInfo.menuType = 0;
     ResetMenuExitTime();
-    g_sysRunPara.sysRunMode = MODE_MENU;
+    HL_SetMode(MODE_MENU);
     Menu_GetSubItemPara(g_menuInfo.menuIndex);
     
     Menu_Display();
-    VoiceBroadcastWithBeepLock(vo_Menu,BEEP_FASTSW);
+    BeepOut(BEEP_FASTSW);
 }
 
 extern void Menu_ExitMode(void)
 {
-    if(g_sysRunPara.sysRunMode != MODE_MENU)
+    if(HL_GetMode() != MODE_MENU)
     {
         return;
     }
+    
+    IWDG_ReloadCounter();
 
-    //±£¥Ê…Ë÷√µƒ ˝æ›
+    //‰øùÂ≠òËÆæÁΩÆÁöÑÊï∞ÔøΩ?
     Flash_SaveRadioImfosData();
     if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
     {
-        //±£¥Ê–≈µ¿ ˝æ›/–≈µ¿√˚≥∆
+        //‰øùÂ≠ò‰ø°ÈÅìÊï∞ÊçÆ/‰ø°ÈÅìÂêçÁß∞
         Flash_SaveChannelData(g_ChannelVfoInfo.channelNum[g_ChannelVfoInfo.switchAB],(U8 *)&g_ChannelVfoInfo.channelInfo[g_ChannelVfoInfo.switchAB].rxFreq,g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].channelName);
     }
     else
     {
-        //±£¥Ê∆µ¬ ƒ£ Ω ˝æ›
+        //‰øùÂ≠òÈ¢ëÁéáÊ®°ÂºèÊï∞ÊçÆ
         Flash_SaveVfoData(g_ChannelVfoInfo.switchAB);
     }
     g_menuInfo.preIndex = g_menuInfo.menuIndex;
 
-    g_sysRunPara.sysRunMode = MODE_MAIN;
+    HL_SetMode(MODE_MAIN);
     g_rfRxState = RX_READY;
     g_menuInfo.menuExitTime = 0;
 
     ResetInputBuf();
-    //«–ªªŒ™œ‘ æ÷˜ΩÁ√Ê
+    //ÂàáÊç¢‰∏∫ÊòæÁ§∫‰∏ªÁïåÈù¢
     DisplayHomePage();
 }
 
@@ -416,6 +258,7 @@ extern void Menu_Up(void)
             g_menuInfo.selectedItem = 0;
         }
         g_menuInfo.inputVal = 0;
+        ApplyCalibrationCalibrationSPI(g_menuInfo.menuIndex, g_menuInfo.selectedItem);
     }
     else
     {
@@ -427,11 +270,6 @@ extern void Menu_Up(void)
         {
             g_menuInfo.menuIndex = 0;
         }
-        if(g_menuInfo.menuType == 1)
-        {
-            Menu_GetFmSubItemPara(g_menuInfo.menuIndex);
-        }
-        else
         {
             Menu_GetSubItemPara(g_menuInfo.menuIndex);
         }
@@ -454,6 +292,7 @@ extern void Menu_Down(void)
             g_menuInfo.selectedItem = g_menuInfo.subMaxItem - 1;
         }
         g_menuInfo.inputVal = 0;
+        ApplyCalibrationCalibrationSPI(g_menuInfo.menuIndex, g_menuInfo.selectedItem);
     }
     else
     {
@@ -465,11 +304,6 @@ extern void Menu_Down(void)
         {
             g_menuInfo.menuIndex = g_menuInfo.menuMaxItem - 1;
         }
-        if(g_menuInfo.menuType == 1)
-        {
-            Menu_GetFmSubItemPara(g_menuInfo.menuIndex);
-        }
-        else
         {
             Menu_GetSubItemPara(g_menuInfo.menuIndex);
         }
@@ -555,16 +389,13 @@ void FreqTypeIn(U8 input)
         g_menuInfo.inputVal = 0;
     }
 
-    //≤•±® ˝◊÷
+    //ÔøΩ?Êä•Êï∞ÔøΩ?
     temp = g_inputbuf.buf[g_inputbuf.len-1] - '0';
     if(g_radioInform.voiceSw == 0)
 	{
 	    BeepOut(BEEP_NULL);
 	}
-	else
-	{
-        Audio_PlayChanNum(temp);
-	}
+	
 
     if(g_inputbuf.len == 6)
     {
@@ -596,16 +427,13 @@ void ChanlFreqTypeIn(U8 input)
         g_menuInfo.inputVal = 0;
     }
 
-    //≤•±® ˝◊÷
+    //ÔøΩ?Êä•Êï∞ÔøΩ?
     temp = g_inputbuf.buf[g_inputbuf.len-1] - '0';
     if(g_radioInform.voiceSw == 0)
 	{
 	    BeepOut(BEEP_NULL);
 	}
-	else
-	{
-        Audio_PlayChanNum(temp);
-	}
+	
 
 	if(g_inputbuf.len == 6)
     {
@@ -636,16 +464,13 @@ void ScanRangeTypeIn(U8 input)
         g_menuInfo.inputVal = 0;
     }
 
-    //≤•±® ˝◊÷
+    //ÔøΩ?Êä•Êï∞ÔøΩ?
     temp = g_inputbuf.buf[g_inputbuf.len-1] - '0';
     if(g_radioInform.voiceSw == 0)
 	{
 	    BeepOut(BEEP_NULL);
 	}
-	else
-	{
-        Audio_PlayChanNum(temp);
-	}
+	
 
 	if(g_inputbuf.len == 6)
     {
@@ -675,7 +500,7 @@ extern void SaveRadioFreq(U8 tx)
         freq = g_menuInfo.inputVal;
         
         if(CheckFreqInRange(freq) == TRUE)
-        {//≈–∂œ∆µ¬  «∑Ò‘⁄∑∂Œßƒ⁄
+        {//Âà§Êñ≠È¢ëÁéáÔøΩ?Âê¶Âú®ËåÉÂõ¥ÔøΩ?
             if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
             {
                 if(tx)
@@ -792,10 +617,10 @@ void OffectFrequency2Buf(U32 freq,U8 *dest,U8 len)
     String buf[9];
     U8 i;
     
-    sprintf(buf,"%07d",freq);
+    sprintf(buf,"%07lu",freq);
 
     for(i=0;i<len;i++)
-    {//Ω´ASC◊™ªªŒ™hex
+    {// ASCI hex
         dest[i] = buf[i] - 0x30;
     }
 }
@@ -809,18 +634,7 @@ extern void SaveChMemory(void)
 
     chNum = g_menuInfo.selectedItem;
 
-    if(searchSaveFlag)
-    {
-        memset(&tempCh,0x00,sizeof(STR_CHANNEL));
-        tempCh.txDCSCTSNum = 0;
-        tempCh.rxDCSCTSNum = 0;
-        tempCh.chFlag3.Byte = 0x06;
-        if(searchFreqImofs.dcsCtsType == SUBAUDIO_CTS)
-        {
-            tempCh.txDCSCTSNum = searchFreqImofs.CtsResult;
-            tempCh.rxDCSCTSNum = searchFreqImofs.CtsResult; 
-            tempCh.chFlag3.Byte &= 0xFE;
-        }
+    
         else if(searchFreqImofs.dcsCtsType == SUBAUDIO_DCS_N)
         {
             if(searchFreqImofs.dcsIsStandard == 1)
@@ -833,8 +647,8 @@ extern void SaveChMemory(void)
             {
                 tempCh.decoderCode = searchFreqImofs.CtsResult;
                 tempCh.decoderCode &= 0X007FFFFF;
-                tempCh.decoderCode |= 0xA0000000; // ±Ì æ—ßœ∞Ã¯∆µ
-                tempCh.chFlag3.Byte |= 0X01;//∆∆¬Î±Í÷æ
+                tempCh.decoderCode |= 0xA0000000; // Ë°®Á§∫Â≠¶‰π†Ë∑≥ÔøΩ??
+                tempCh.chFlag3.Byte |= 0X01;//Á†¥Á†ÅÊ†áÂøó
             }
         }
         tempCh.dtmfgroup = 0;
@@ -869,7 +683,7 @@ extern void SaveChMemory(void)
                 
                 tempCh.txDCSCTSNum = g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].freqTx.dcsCtsNum;
                 LongIntoI2C((U8 *)&tempCh.txFreq,g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].freqTx.frequency);
-                VoiceBroadcastWithBeepLock(vo_Txmemory,BEEP_FMUP);
+                BeepOut(BEEP_FMUP);
             }
             else
             {
@@ -878,16 +692,16 @@ extern void SaveChMemory(void)
                 
                 LongIntoI2C((U8 *)&tempCh.rxFreq,g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].freqRx.frequency);
                 LongIntoI2C((U8 *)&tempCh.txFreq,g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].freqTx.frequency);
-                VoiceBroadcastWithBeepLock(vo_Rxmemory,BEEP_FMDOWN);
+                BeepOut(BEEP_FMDOWN);
             }
     
-            tempCh.chFlag3.Bit.b6 = g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].wideNarrow;//øÌ’≠¥¯
+            tempCh.chFlag3.Bit.b6 = g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].wideNarrow;//ÂÆΩÁ™ÑÔøΩ?
             tempCh.chFlag3.Bit.b0 = g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].vfoFlag.Bit.b0;
-    		tempCh.txPower = g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].txPower;//∑¢…‰π¶¬ 
-            tempCh.chFlag3.Bit.b3 = g_radioInform.txBusyLock;//∑±√¶À¯∂®
-            tempCh.dtmfgroup = g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].dtmfgroup;//–≈¡Ó¬Î
+    		tempCh.txPower = g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].txPower;//ÂèëÂ∞ÑÂäüÁéá
+            tempCh.chFlag3.Bit.b3 = g_radioInform.txBusyLock;//ÁπÅÂøôÈîÅÂÆö
+            tempCh.dtmfgroup = g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].dtmfgroup;//‰ø°‰ª§ÔøΩ?
     		tempCh.pttID = g_radioInform.pttIdMode;//PTT_ID
-    		tempCh.chFlag3.Bit.b2 = 1;//…®√ËÃÌº”ƒ¨»œON
+    		tempCh.chFlag3.Bit.b2 = 1;//ÔøΩ?ÊèèÊ∑ªÂä†ÈªòÔøΩ?ON
     		tempCh.chFlag3.Byte |= 0x02;
         }
     }
@@ -897,7 +711,7 @@ extern void SaveChMemory(void)
     g_ChannelVfoInfo.channelNum[g_ChannelVfoInfo.switchAB] = g_ChannelVfoInfo.currentChannelNum;
     Flash_SaveSystemRunData();
 
-    // πƒ‹µ±«∞–≈µ¿
+    //‰ΩøËÉΩÂΩìÂâç‰ø°ÈÅì
     g_ChannelVfoInfo.haveChannel = 1;
     ListFlagSet(g_ChannelVfoInfo.chanActiveList,chNum,1);
 
@@ -917,11 +731,7 @@ extern void SaveChMemory(void)
         ChannleVfoDataInit(1,1);
     }
 
-    if(searchSaveFlag)
-    {
-        searchSaveFlag = 0;
-        Menu_ExitMode();
-    }
+    
 }
 
 
@@ -935,7 +745,7 @@ extern void SaveChDelete(void)
     {
         Flash_DeleteChannelData(chNum);
 
-        //«Â≥˝µ±«∞–≈µ¿
+        //Ê∏ÖÈô§ÂΩìÂâç‰ø°ÈÅì
         ListFlagSet(g_ChannelVfoInfo.chanActiveList,chNum,0);
         ListFlagSet(g_ChannelVfoInfo.scanList,chNum,0);
 
@@ -952,25 +762,25 @@ extern void SaveChDelete(void)
 
         if(g_ChannelVfoInfo.haveChannel == 0)
         {
-            //œ‘ æ«Îµ»¥˝
+            //ÊòæÁ§∫ËØ∑Á≠âÔøΩ?
             if(g_radioInform.language == LANG_CN)
             {
-                sprintf(disBuf,"%-*.*s\n\r",16,16,"«Îµ»¥˝...");
+                sprintf(disBuf,"%-*.*s",16,16,"ËØ∑Á≠â...");
             }
             else
             {
-                sprintf(disBuf,"%-*.*s\n\r",16,16,"Wait...");
+                sprintf(disBuf,"%-*.*s",16,16,"Wait...");;
             }
             LCD_DisplayText(47, 0, (U8 *)disBuf, FONTSIZE_16x16,LCD_DIS_NORMAL);
             LCD_UpdateWorkAre();
             
-            //≥ı ºªØŒ™ƒ¨»œ–≈µ¿–≈œ¢
+            //ÂàùÔøΩ?ÔøΩÂåñ‰∏∫ÈªòËÆ§‰ø°ÈÅì‰ø°ÔøΩ?
             ResetChannelData();
-            NVIC_SystemReset();//∏¥ŒªœµÕ≥
+            NVIC_SystemReset();//Â§ç‰ΩçÁ≥ªÁªü
         }
         else
         {
-            //–≈µ¿…æ≥˝∫Û–Ë“™÷ÿ–¬º”‘ÿ”––ß–≈µ¿£¨∑Ò‘Úµ±AB…Ë÷√Œ™œ‡Õ¨–≈µ¿∫≈ ±ª·≥ˆ¥Ì
+            //‰ø°ÈÅìÂà†Èô§ÂêéÈúÄË¶ÅÈáçÊñ∞Âä†ËΩΩÊúâÊïà‰ø°ÈÅìÔºåÂê¶ÂàôÂΩìABËÆæÁΩÆ‰∏∫Áõ∏Âêå‰ø°ÈÅìÂè∑Êó∂‰ºöÂá∫Èîô
             if( CheckChannelActive(g_ChannelVfoInfo.channelNum[0], 0) == CHAN_DISABLE )
             {
                 g_ChannelVfoInfo.channelNum[0] = SeekActiveChannel_Up(g_ChannelVfoInfo.channelNum[0], 0);
@@ -984,7 +794,7 @@ extern void SaveChDelete(void)
             }
         }
     }
-    VoiceBroadcastWithBeepLock(vo_Confirm,BEEP_FASTSW);
+    BeepOut(BEEP_FASTSW);
 }
 
 extern void SaveVfoScanRanger(void)
@@ -1014,11 +824,11 @@ extern void EnterResetMode(void)
     memset(disBuf,0x00,17);
     if(g_radioInform.language == LANG_CN)
     {
-        sprintf(disBuf,"%-*.*s\n\r",16,16,"»∑»œ≥ı ºªØ?");
+        sprintf(disBuf,"%-*.*s",16,16,"ËÆ§ÂàùÂßãÂåñ?");
     }
     else
     {
-        sprintf(disBuf,"%-*.*s\n\r",16,16,"Sure to Reset?");
+        sprintf(disBuf,"%-*.*s",16,16,"Sure to Reset?");
     }
     LCD_DisplayText(47, 0, (U8 *)disBuf, FONTSIZE_16x16,LCD_DIS_NORMAL);
     LCD_UpdateWorkAre();
@@ -1030,13 +840,13 @@ extern void EnterResetMode(void)
             App_10msTask();
         }
         
-        //100ms‘À––“ª¥Œ
+        //100msËøêÔøΩ?ÔøΩ‰∏ÄÔøΩ?
         if(g_100msFlag)
         {
             App_100msTask();
         }
 
-        //500ms‘À––“ª¥Œ
+        //500msËøêÔøΩ?ÔøΩ‰∏ÄÔøΩ?
         if(g_500msFlag)
         {
             App_500msTask();
@@ -1055,21 +865,21 @@ extern void EnterResetMode(void)
             break;
         }
 
-        if(g_sysRunPara.sysRunMode != MODE_MENU)
-        {//∞¥PTT÷±Ω”ÕÀ≥ˆ≤Àµ•
+        if(HL_GetMode() != MODE_MENU)
+        {//ÊåâPTTÁõ¥Êé•ÔøΩ?Âá∫ËèúÔøΩ?
             return;
         }
-        Audio_PlayTask();
+        
     }
 
-    //œ‘ æ«Îµ»¥˝
+    //ÊòæÁ§∫ËØ∑Á≠âÔøΩ?
     if(g_radioInform.language == LANG_CN)
     {
-        sprintf(disBuf,"%-*.*s\n\r",16,16,"  «Îµ»¥˝...  ");
+        sprintf(disBuf,"%-*.*s",16,16,"  ËØ∑Á≠â...  ");
     }
     else
     {
-        sprintf(disBuf,"%-*.*s\n\r",16,16,"Please Wait...");
+        sprintf(disBuf,"%-*.*s",16,16,"Please Wait...");
     }
     LCD_DisplayText(47, 0, (U8 *)disBuf, FONTSIZE_16x16,LCD_DIS_NORMAL);
     LCD_UpdateWorkAre();
@@ -1086,9 +896,9 @@ extern void EnterResetMode(void)
         ResetRadioFunData();
     }
     
-    //—” ±500ms∫Û÷ÿ∆Ù
+    //Âª∂Êó∂500msÂêéÈáçÔøΩ?
     DelayMs(500);
-    //∏¥ŒªœµÕ≥
+    //Â§ç‰ΩçÁ≥ªÁªü
     NVIC_SystemReset();
 }
 
@@ -1097,285 +907,41 @@ extern void Menu_SaveSelectItem(U8 menuIndex)
 {
     switch(menuIndex)
     {
-        case S_CHNAME:
-            if(g_inputbuf.len > 12)
-            {
-                g_inputbuf.len = 12;
-            }
-            memset(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].channelName,0xff,12);
-            memcpy(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].channelName,g_inputbuf.buf, 12);
-            LCD_UpdateWorkAre();
+        case S_MICGAIN:
+            g_radioInform.remain0[0] = g_menuInfo.selectedItem;
+            Flash_SaveRadioImfosData();
             break;
-        case S_RXFREQ:
-            SaveRadioFreq(0);
-            break;
-        case S_TXFREQ:
-            SaveRadioFreq(1);
-            break;
-        case S_RXCTS:
-            SaveRadioCtcss(0);
-            break;    
-        case S_RXDCS:
-            SaveRadioDcs(0);
-            break;
-        case S_TXCTS: 
-            SaveRadioCtcss(1);
-            break;
-        case S_TXDCS: 
-            SaveRadioDcs(1);
-            break;
-        case S_WN: 
-            g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].wideNarrow = g_menuInfo.selectedItem;
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
-            {
-                 g_ChannelVfoInfo.channelInfo[g_ChannelVfoInfo.switchAB].chFlag3.Bit.b6 = g_menuInfo.selectedItem;
-            }
-            else
-            {
-                g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].vfoFlag.Bit.b6  = g_menuInfo.selectedItem;
-            }
-            break;
-        case S_TXPR:
-            g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].txPower = g_menuInfo.selectedItem;
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
-            {
-                 g_ChannelVfoInfo.channelInfo[g_ChannelVfoInfo.switchAB].txPower = (g_ChannelVfoInfo.channelInfo[g_ChannelVfoInfo.switchAB].txPower &0x0f) | g_menuInfo.selectedItem;
-            }
-            else
-            {
-                g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].txPower = (g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].txPower & 0x0f) | g_menuInfo.selectedItem;
-            }
-            break;
-        case S_SPMUTE:
-            g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].spMute = g_menuInfo.selectedItem;
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
-            {
-                 g_ChannelVfoInfo.channelInfo[g_ChannelVfoInfo.switchAB].chFlag3.Bit.spMute = g_menuInfo.selectedItem;
-            }
-            else
-            {
-                g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].spMute = g_menuInfo.selectedItem;
-            }
-            break;
-        case S_TXFORBID:
-            g_radioInform.txForbid = g_menuInfo.selectedItem;
-            break;
-        case S_SFTD:
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
-            {
-                VoiceBroadcastWithBeepLock(vo_Cancel,BEEP_EXITMENU);
-            }
-            else
-            {
-                g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].dtmfgroup &= 0x1F;
-                if(g_menuInfo.selectedItem == 1)
-                {
-                    g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].dtmfgroup |= 0x20;
-                }
-                else if(g_menuInfo.selectedItem == 2)
-                {
-                    g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].dtmfgroup |= 0x40;
-                }
-                else
-                {
-                }
-                ChannleVfoDataInit(g_ChannelVfoInfo.switchAB,0);
-            }
-            break;
-        case S_OFFSE:
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == CHAN_MODE)
-            {
-                VoiceBroadcastWithBeepLock(vo_Cancel,BEEP_EXITMENU);
-            }
-            else
-            {
-                if(g_inputbuf.len != 0)
-                {
-                    g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].freqOffset = g_menuInfo.inputVal;
-                }
-                g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].freqOffset = (g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].freqOffset+ 20)/50*50;
-
-                OffectFrequency2Buf(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].freqOffset,g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].Offset,7);
-                ChannleVfoDataInit(g_ChannelVfoInfo.switchAB,0);
-            }
-            break;
-        case S_MEMCH: 
-            SaveChMemory();
-            break;
-        case S_DELCH:
-            SaveChDelete();
-            break;
-        case S_VFOSCAN:
-            SaveVfoScanRanger();
-            break;
-        case S_SCREV:
-            g_radioInform.scanMode = g_menuInfo.selectedItem;
-            break;
-        case S_DTST:
-            g_radioInform.dtmfTone = g_menuInfo.selectedItem;
-            break;
-        case S_PTTID: 
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == VFO_MODE)
-            {
-                g_radioInform.pttIdMode = g_menuInfo.selectedItem;
-            }
-            else
-            {
-                g_ChannelVfoInfo.channelInfo[g_ChannelVfoInfo.switchAB].pttID = g_menuInfo.selectedItem;
-            }
-            
-            g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].pttIdMode = g_menuInfo.selectedItem;
-            break;
-        case S_PTTLT:
-            g_radioInform.pttIdTime = g_menuInfo.selectedItem;
+        case S_ROGERVOL:
+            g_radioInform.remain0[1] = g_menuInfo.selectedItem;
+            Flash_SaveRadioImfosData();
             break;
         case S_SQL:
-            g_radioInform.sqlLevel = g_menuInfo.selectedItem;
+            g_radioInform.remain0[2] = g_menuInfo.selectedItem;
+            Rfic_WriteWord(0x48, 0x8000 | (g_radioInform.remain0[2] << 4) | 0x02);
+            Flash_SaveRadioImfosData();
             break;
-        case S_SAVE: 
-            g_radioInform.saveLevel = g_menuInfo.selectedItem;
+
+        case S_ROGE:
+            g_radioInform.remain0[3] = g_menuInfo.selectedItem;
+            Flash_SaveRadioImfosData();
             break;
-        case S_VOX: 
-            g_radioInform.voxSwitch = g_menuInfo.selectedItem;
-            break;
-        case S_VOXLV: 
-            g_radioInform.voxLevel = g_menuInfo.selectedItem;
-            break;
-        case S_VOXDLY:
-            g_radioInform.voxDelay = g_menuInfo.selectedItem;
-            break;
-        case S_TOT:
-            g_radioInform.totLevel = g_menuInfo.selectedItem;
-            break;
-        case S_LAN:
-            g_radioInform.language = g_menuInfo.selectedItem;
-            break;
-        case S_VOIC:
-            g_radioInform.voiceSw = g_menuInfo.selectedItem;
-            break;
-        case S_MENUEXIT:
-            g_radioInform.menuExitTime= g_menuInfo.selectedItem;
-            ResetMenuExitTime();
-            break;
-        case S_BEEP:
-            g_radioInform.beepsSwitch = g_menuInfo.selectedItem;
-            break;
-        case S_ROGE: 
-            g_radioInform.txOffTone = g_menuInfo.selectedItem;
-            break;
-        case S_BUSYLOCK:   
-            if(g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].chVfoMode == VFO_MODE)
-            {
-                g_radioInform.txBusyLock = g_menuInfo.selectedItem;
+        case S_TXPR:
+            g_radioInform.txPower = g_menuInfo.selectedItem;
+            if(g_radioInform.txPower == 0) {
+                Rfic_WriteWord(0x43, 0x3028); // Low power
+            } else {
+                Rfic_WriteWord(0x43, 0x4048); // High power
             }
-            else
-            {
-                g_ChannelVfoInfo.channelInfo[g_ChannelVfoInfo.switchAB].chFlag3.Bit.b3 = g_menuInfo.selectedItem;
-            }
-            
-            g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].busyLock = g_menuInfo.selectedItem;
+            Flash_SaveRadioImfosData();
             break;
-        case S_PONTYPE:
-            g_radioInform.OpFlag1.Bit.b0 = g_menuInfo.selectedItem;
-            break;
-        case S_PONTONE:
-            g_radioInform.OpFlag1.Bit.b2 = g_menuInfo.selectedItem;
-            break;
-        case S_PONMSG:
-            if(g_inputbuf.len > 16)
-            {
-                g_inputbuf.len = 16;
-            }
-            memset(powerOnMsg,0x00,16);
-            memcpy(powerOnMsg,g_inputbuf.buf,g_inputbuf.len);
-            LCD_UpdateWorkAre();
-            break;
-        case S_PWR:
-            g_radioInform.pwrPwdFlag = g_menuInfo.selectedItem;
-            break;
-        case S_TDR:
-            g_radioInform.dualRxFlag = g_menuInfo.selectedItem;
-            break;
-        case S_MDF1: 
-            g_radioInform.channleDisA = g_menuInfo.selectedItem;
-            break;
-        case S_MDF2: 
-            g_radioInform.channleDisB = g_menuInfo.selectedItem;
-            break;
-        case S_RPSTE:
-            g_radioInform.rpste = g_menuInfo.selectedItem;
-            break;
-        case S_RPTRL:
-            g_radioInform.rptrl = g_menuInfo.selectedItem;
-            break;
-        case S_RTONE: 
-            g_radioInform.rtone = g_menuInfo.selectedItem;
-            break;
-        case S_STEP: 
-            g_ChannelVfoInfo.chVfoInfo[g_ChannelVfoInfo.switchAB].freqStep = g_menuInfo.inputVal;
-            g_ChannelVfoInfo.vfoInfo[g_ChannelVfoInfo.switchAB].STEP = g_menuInfo.inputVal;
-            break;
-        case S_TAIL:  
-            g_radioInform.tailSwitch = g_menuInfo.selectedItem;
-            break;
-        case S_ALMOD: 
-            g_radioInform.alarmMode = g_menuInfo.selectedItem;
-            break;
-        case S_SK1:
-            g_radioInform.userSideKey[0] = g_menuInfo.selectedItem;
-            break;
-        case S_SKL1:
-            g_radioInform.userSideKey[1] = g_menuInfo.selectedItem;
-            break;
-        case S_SK2:
-            g_radioInform.userSideKey[2] = g_menuInfo.selectedItem;
-            break;
-        case S_ABR:  
-            g_radioInform.autoBack = g_menuInfo.selectedItem;
-            break;
-        case S_BRIGHT:
-            g_radioInform.brightness = g_menuInfo.selectedItem;
-            SC5620_SetContpastRatio(g_radioInform.brightness);
-            break;
-        case S_REFLEX:
-            g_radioInform.DisplayStyles = g_menuInfo.selectedItem;
-            LCD_UpdateFullScreen();
-            break;
-        case S_AUTOLK: 
-            g_radioInform.keyAutoLock = g_menuInfo.selectedItem;
-            break;
-        case S_FMINT:  
-            g_radioInform.fmInterrupt = g_menuInfo.selectedItem;
-            break;
-        case S_RESET:    
-            EnterResetMode();
-            break;
-        case S_WATCH:
-            Menu_ExitMode();
-            EnterStopWatchMode();
-            break;
-        case S_INFO:
+
         default:
             break;
     }
 }
 
-extern void Menu_SaveFmSelectItem(U8 menuIndex)
-{
-    switch(menuIndex)
-    {
-        case 0:
-           g_FMInform.FmCHs[g_menuInfo.selectedItem] = (U16)fmInfo.freq;
-            g_FMInform.fmChNum = g_menuInfo.selectedItem;
-            FmCheckChannelActive();
-            break;
-        case 1:
-        default:
-            fmInfo.band = g_menuInfo.selectedItem;
-            FmBandConfig();
-            break;
-    }
-}
+
+
 
 extern void Menu_PriorLevel(void)
 {
@@ -1385,11 +951,6 @@ extern void Menu_PriorLevel(void)
     {
         g_menuInfo.isSubMenu = 0;
         g_menuInfo.fastSelect = 0;
-        if(g_menuInfo.menuType == 1)
-        {
-            Menu_GetFmSubItemPara(g_menuInfo.menuIndex);
-        }
-        else
         {
             Menu_GetSubItemPara(g_menuInfo.menuIndex);
         }
@@ -1405,7 +966,7 @@ extern void Menu_PriorLevel(void)
         if(g_menuInfo.menuType == 1)
         {
             g_menuInfo.menuIndex = g_menuInfo.preIndex;
-            ResumeFmMode();
+            
         }
         else
         {
@@ -1421,7 +982,7 @@ extern void Menu_EnterNextLevel(void)
     ResetMenuExitTime();
 
     if(g_menuInfo.isSubMenu)
-    {//—°‘Ò≤Àµ•—°œÓƒ£ Ω
+    {//ÈÄâÊã©ËèúÂçïÈÄâÈ°πÊ®°Âºè
         if(g_menuInfo.inputMode == MENU_ONE_FREQ && (g_inputbuf.len != 0 && g_inputbuf.len != 6))
         {
             BeepOut(BEEP_NULL);
@@ -1429,24 +990,19 @@ extern void Menu_EnterNextLevel(void)
         }
         
         if((g_menuInfo.inputMode == MENU_CH_FREQ || g_menuInfo.inputMode == MENU_ONE_VFOSCAN) && (g_inputbuf.len != 0 && g_inputbuf.len != 6))
-        {// ‰»Î∆µ¬  ±Ãÿ ‚¥¶¿Ì
+        {//ËæìÂÖ•È¢ëÁéáÊó∂ÁâπÊÆäÔøΩ?ÔøΩÁêÜ
             BeepOut(BEEP_NULL);
             return;
         }
-        VoiceBroadcastWithBeepLock(vo_Confirm,BEEP_FASTSW);
+        BeepOut(BEEP_FASTSW);
 
-        //÷¥––≤Àµ•±£¥Ê∫Ø ˝
-        if(g_menuInfo.menuType == 1)
-        {
-            Menu_SaveFmSelectItem(g_menuInfo.menuIndex);
-        }
-        else
+        //ÊâßÔøΩ?ÔøΩËèúÂçï‰øùÂ≠òÂáΩÔøΩ?
         {
             Menu_SaveSelectItem(g_menuInfo.menuIndex);
         }
 
-        if(g_sysRunPara.sysRunMode != MODE_MENU)
-        {//÷¥––≤Àµ•∫Û£¨≤ª‘⁄≤Àµ•ƒ£ Ω£¨÷±Ω”ÕÀ≥ˆ≤Àµ•
+        if(HL_GetMode() != MODE_MENU)
+        {//ÊâßÔøΩ?ÔøΩËèúÂçïÂêéÔºå‰∏çÂú®ËèúÂçïÊ®°ÂºèÔºåÁõ¥Êé•ÔøΩ?Âá∫ËèúÔøΩ?
             return;
         }
         g_rfRxState = RX_READY;
@@ -1454,58 +1010,51 @@ extern void Menu_EnterNextLevel(void)
         g_menuInfo.fastSelect = 0;
 
         ResetInputBuf();
-        if(g_menuInfo.menuType == 1)
-        {
-            Menu_GetFmSubItemPara(g_menuInfo.menuIndex);
-        }
-        else
         {
             Menu_GetSubItemPara(g_menuInfo.menuIndex);
         }
         Menu_Display();
     }
     else
-    {//—°‘Ò≤Àµ•ƒ£ Ω
+    {//ÈÄâÊã©ËèúÂçïÊ®°Âºè
         //ResetInputBuf();
         if(g_menuInfo.inputMode == MENU_ONE_NULL)
-        {//µ±«∞≤Àµ•÷ª”√”⁄œ‘ æƒ⁄»›£¨≤ª¥¯≤Ÿ◊˜ ±£¨÷±Ω”∑µªÿ
-            VoiceBroadcastWithBeepLock(vo_Cancel,BEEP_EXITMENU);
+        {//ÂΩìÂâçËèúÂçïÔøΩ?Áî®‰∫éÊòæÁ§∫ÂÜÖÔøΩ?ÔøΩÔºå‰∏çÂ∏¶Êìç‰ΩúÊó∂ÔºåÁõ¥Êé•ËøîÂõû
+            BeepOut(BEEP_EXITMENU);
             return;
         }
         
         if((g_menuInfo.menuType == 1) && g_menuInfo.selectedItem == 0xFFFF)
         {
-            VoiceBroadcastWithBeepLock(vo_Cancel,BEEP_ERROR);
+            BeepOut(BEEP_ERROR);
             return;
         }
         else if(g_menuInfo.inputMode == MENU_ONE_CHAR)
         {
             if(g_menuInfo.selectedItem == 0xFFFF)
             {
-                VoiceBroadcastWithBeepLock(vo_Cancel,BEEP_ERROR);
+                BeepOut(BEEP_ERROR);
                 return;
             }
-            //«Â≥˝’˚∏ˆ∆¡ƒªœ‘ æ
+            //Ê∏ÖÈô§Êï¥‰∏™Â±èÂπïÊòæÁ§∫
             LCD_UpdateWorkAre();
 
         }
-        else
-        {
-        }
+        
         g_menuInfo.isSubMenu = 1;
         g_menuInfo.fastSelect = 0;
         g_menuInfo.inputVal = 0;
         g_menuInfo.inputLen = 0;
 
         Menu_Display();
-        VoiceBroadcastWithBeepLock(MenuList[g_menuInfo.menuIndex].voiceId,BEEP_FASTSW);    
+        BeepOut(BEEP_FASTSW);    
     }     
     
 }
 
 extern void CheckExitMenu(void)
 {
-    if(g_sysRunPara.sysRunMode != MODE_MENU)
+    if(HL_GetMode() != MODE_MENU)
     {
         return;
     }
@@ -1515,7 +1064,7 @@ extern void CheckExitMenu(void)
         if(g_menuInfo.menuType == 1)
         {
             g_menuInfo.menuIndex = g_menuInfo.preIndex;
-            ResumeFmMode();
+            
         }
         else
         {
@@ -1545,7 +1094,7 @@ extern void Menu_KeyDigitalInput(U8 input)
 
     switch(g_menuInfo.inputMode)
     {
-        case MENU_ONE_CHAR:              // ‰»Î◊÷ƒ∏ªÚ’ﬂ∆¥“Ù
+        case MENU_ONE_CHAR:              //ËæìÂÖ•Â≠óÊØçÊàñÔøΩ?ÔøΩÊãºÔøΩ?
             if(g_menuInfo.isSubMenu)
             {
                 if (NumToChar(input) != OK)
@@ -1554,13 +1103,13 @@ extern void Menu_KeyDigitalInput(U8 input)
                 }
                 break;
             }
-        case MENU_ONE_CTCSS:             //ƒ£ƒ‚—«“Ù∆µ—°‘Ò∫Õ ‰»Î
+        case MENU_ONE_CTCSS:             //Ê®°Êãü‰∫öÈü≥È¢ëÔøΩ?ÔøΩÊã©ÂíåËæìÔøΩ?
             if(g_menuInfo.isSubMenu)
             {
                 CtcssTypeIn(input);
                 break;
             }
-        case MENU_ONE_FREQ:              //∆µ¬  ‰»Î
+        case MENU_ONE_FREQ:              //È¢ëÁéáËæìÂÖ•
             if(g_menuInfo.isSubMenu)
             {
                 FreqTypeIn(input);  
@@ -1586,7 +1135,7 @@ extern void Menu_KeyDigitalInput(U8 input)
             }
         case MENU_ONE_DECODE:
             if((g_menuInfo.isSubMenu) && (flag == 0) && (g_sysRunPara.decoderCode == 0))
-            {//flag”√”⁄≈–∂œ «∑Ò‘⁄codeƒ£ Ω ±£¨√ª”–∆∆¬Î ±£¨◊Ó¥Û ˝¡ø–Ë“™ºı1
+            {//flagÁî®‰∫éÂà§Êñ≠ÔøΩ?Âê¶Âú®codeÊ®°ÂºèÊó∂ÔºåÊ≤°ÊúâÁ†¥Á†ÅÊó∂ÔºåÔøΩ?Â§ßÊï∞ÈáèÈúÄË¶ÅÂáè1
                 maxItem -= 1;
             }
         case MENU_ONE_SELECT:
@@ -1595,7 +1144,7 @@ extern void Menu_KeyDigitalInput(U8 input)
             {
                 g_menuInfo.fastSelect = 0;
             }
-            //”√”⁄≤Àµ•∏ƒ±‰ ±øÏÀŸ—°‘Ò≤Àµ• ‰»Î
+            //Áî®‰∫éËèúÂçïÊîπÂèòÊó∂Âø´ÈÄüÔøΩ?ÔøΩÊã©ËèúÂçïËæìÂÖ•
             if(flag)
             {
                 if((selectVal+1) != g_menuInfo.fastSelect)
@@ -1612,7 +1161,7 @@ extern void Menu_KeyDigitalInput(U8 input)
             }
         
             select = input-0x30;
-            Audio_PlayChanNum(select);
+            
             g_menuInfo.fastSelect = g_menuInfo.fastSelect*10 + select;
 
             if(g_menuInfo.fastSelect >= maxItem)
@@ -1642,14 +1191,9 @@ extern void Menu_KeyDigitalInput(U8 input)
             }
 
             if(g_menuInfo.isSubMenu == 0)
-            {//—°‘Ò≤Àµ•ƒ£ Ω
+            {//ÈÄâÊã©ËèúÂçïÊ®°Âºè
                 g_menuInfo.menuIndex = selectVal;
 
-                if(g_menuInfo.menuType == 1)
-                {
-                    Menu_GetFmSubItemPara(g_menuInfo.menuIndex); 
-                }
-                else
                 {
                     Menu_GetSubItemPara(g_menuInfo.menuIndex); 
                 }
@@ -1671,62 +1215,26 @@ extern void DcsSwitchPolarity(void)
     g_menuInfo.fastSelect = 0;
 
     if(g_menuInfo.selectedItem == 0 || g_menuInfo.selectedItem == 211)
-    {//»Áπ˚ «πÿ±’◊¥Ã¨ªÚ’ﬂ∆∆¬Î◊¥Ã¨‘Ú≤ª«–ªª
+    {//Â¶ÇÊûúÔøΩ?ÂÖ≥Èó≠Áä∂ÔøΩ?ÔøΩÊàñËÄÖÁ†¥Á†ÅÁä∂ÊÄÅÂàô‰∏çÂàáÔøΩ?
         return;
     }
 
     if(g_menuInfo.selectedItem <= 105)
-    {//’˝¬Î«–ªªŒ™∑¥¬Î
+    {//Ê≠£Á†ÅÂàáÊç¢‰∏∫ÂèçÔøΩ?
         g_menuInfo.selectedItem += 105;
         BeepOut(BEEP_FMDOWN);
     }
     else
-    {//∑¥¬Î«–ªªŒ™’˝¬Î
+    {//ÂèçÁ†ÅÂàáÊç¢‰∏∫ÔøΩ?ÔøΩÁ†Å
         g_menuInfo.selectedItem -= 105;
         BeepOut(BEEP_FMUP);
     }
     Menu_Display();
 }
 
-extern void EnterFMMenu(void)
-{
-    LCD_ClearWorkArea();
-    
-    ResetInputBuf();
-    DualStandbyWorkOFF();
-    g_menuInfo.preIndex = g_menuInfo.menuIndex;
-    g_menuInfo.menuIndex = 0;
-    g_menuInfo.menuMaxItem = 2;
-    g_menuInfo.isSubMenu = 0;
-    g_menuInfo.fastSelect = 0;
-    g_menuInfo.fastInTime = 0;
-    g_menuInfo.inputLen = 0;
-    g_menuInfo.menuType = 1;
-    ResetMenuExitTime();
-    g_sysRunPara.sysRunMode = MODE_MENU;
-    Menu_GetFmSubItemPara(g_menuInfo.menuIndex);
-    Menu_Display();
-}
 
-extern void FastEnterChMemMenu(void)
-{
-    LCD_ClearWorkArea();
 
-    ResetInputBuf();
-    DualStandbyWorkOFF();
-    g_menuInfo.preIndex = g_menuInfo.menuIndex;
-    g_menuInfo.menuIndex = S_MEMCH;
-    g_menuInfo.menuMaxItem = MENU_MAX_CNT;
-    g_menuInfo.isSubMenu = 0;
-    g_menuInfo.fastSelect = 0;
-    g_menuInfo.fastInTime = 0;
-    g_menuInfo.inputLen = 0;
-    g_menuInfo.menuType = 0;
-    g_sysRunPara.sysRunMode = MODE_MENU;
-    Menu_GetSubItemPara(g_menuInfo.menuIndex);
-    
-    Menu_EnterNextLevel();
-}
+
 
 extern U8 checkInputCharMode(void)
 {
@@ -1834,11 +1342,11 @@ extern void KeyProcess_Menu(U8 keyEvent)
             }    
             break;
         case KEYID_STAR:
-            EnterRemoteScanQTMode();
+            
             break;     
         case KEYID_WELL:
             if (g_menuInfo.inputMode == MENU_ONE_DECODE)
-            {// ‰»Î ˝◊÷—«“Ùƒ£ Ω«–ªª’˝∑¥¬Î π”√
+            {//ËæìÂÖ•Êï∞Â≠ó‰∫öÈü≥Ê®°ÂºèÂàáÊç¢Ê≠£ÂèçÁ†Å‰ΩøÔøΩ?
                 DcsSwitchPolarity();
             }
             else
@@ -1869,4 +1377,3 @@ extern void KeyProcess_Menu(U8 keyEvent)
             break;
     }
 }
-
