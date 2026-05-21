@@ -134,3 +134,9 @@ void UI_DrawText(U8 x, U8 y, const char* str, U8 scale)
         str++;
     }
 }
+
+void UI_ClearLine(U8 line_y)
+{
+    // Limpia 128 píxeles de ancho y 8 de alto (exactamente 1 página)
+    SC5260_ClearArea(line_y, 0, 128, 8, 0);
+}

@@ -124,8 +124,14 @@ void SC5260_Init(void)
 
 void LCD_UpdateFullScreen(void)
 {
+    LCD_UpdatePages(0, 7);
+}
+
+void LCD_UpdatePages(U8 start_page, U8 end_page)
+{
     U8 i, j;
-    for(i = 0; i < 8; i++) {
+    if (end_page > 7) end_page = 7;
+    for(i = start_page; i <= end_page; i++) {
         SC5260_SetStartPosition(i, 4);
         LCD_CS_L;
         LCD_RS_H;

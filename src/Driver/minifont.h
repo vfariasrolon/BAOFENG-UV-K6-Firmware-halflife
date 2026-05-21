@@ -9,5 +9,6 @@
 
 void LCD_DrawChar(U8 x, U8 y, char c, U8 scale);
 void UI_DrawText(U8 x, U8 y, const char* str, U8 scale);
+void UI_ClearLine(U8 line_y);
 
 #endif /* __MINIFONT_H */

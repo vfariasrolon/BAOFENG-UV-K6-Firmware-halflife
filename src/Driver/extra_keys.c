@@ -36,10 +36,6 @@ void ExtraKeys_ScanTask(void)
     /* Los botones son activos en bajo (Pull-Up y conectan a GND) */
     if ((GPIOA->IDR & GPIO_Pin_10) == 0) {
         extKey = KEYID_PTT;
-    } else if ((GPIOF->IDR & GPIO_Pin_6) == 0) {
-        extKey = KEYID_SIDEKEY1;
-    } else if ((GPIOB->IDR & GPIO_Pin_14) == 0) {
-        extKey = KEYID_SIDEKEY2;
     }
 
     if (preExtKey == extKey) {

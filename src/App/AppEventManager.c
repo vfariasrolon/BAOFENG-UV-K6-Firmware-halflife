@@ -4,8 +4,9 @@
 #include "../Common/prototypes.h"
 #include "../Driver/Sc5260.h"
 #include "../Driver/minifont.h"
+#include "../Protocol/vrfr_proto.h"
 
-volatile UI_State_Enum g_uiState = UI_STATE_DEBUG_MAPPING;
+volatile UI_State_Enum g_uiState = UI_STATE_TEST_BENCH;
 volatile U8 g_vrfr_tx_blink_counter = 0;
 
 const char* Debug_GetKeyName(KeyID_Enum key)
@@ -87,6 +88,75 @@ void App_EventManager(KeyID_Enum key)
             UI_DrawText(20, 20, Debug_GetKeyName(key), SCALE_NORMAL); // SCALE_NORMAL cabe mejor
             LCD_UpdateFullScreen();
             break;
+
+        case UI_STATE_TEST_BENCH:
+        {
+            static bool s_first_run = true;
+            if (s_first_run) {
+                SC5260_ClearArea(0, 0, 128, 64, 0);
+                LCD_UpdateFullScreen();
+                s_first_run = false;
+            }
+            
+            if (key == KEYID_MENU) {
+                UI_ClearLine(0);
+                UI_DrawText(0, 0, "[TX] PING", SCALE_TINY);
+                UI_ClearLine(8);
+                UI_DrawText(0, 8, "DTMF: *10000C   ", SCALE_TINY);
+                LCD_UpdatePages(0, 1); // Actualizar solo páginas 0 y 1
+                
+                VRFR_RenderDiagnostics(); // Pintar logs (que a su vez actualizan su zona)
+                
+                VRFR_Test_Send_Ping(0);
+            } else if (key == KEYID_UP) {
+                UI_ClearLine(0);
+                UI_DrawText(0, 0, "[TX] HOP+", SCALE_TINY);
+                UI_ClearLine(8);
+                UI_DrawText(0, 8, "DTMF: *399994   ", SCALE_TINY);
+                LCD_UpdatePages(0, 1);
+                
+                VRFR_RenderDiagnostics();
+                
+                VRFR_Test_Send_FreqJump(1);
+            } else if (key == KEYID_DOWN) {
+                UI_ClearLine(0);
+                UI_DrawText(0, 0, "[TX] HOP-", SCALE_TINY);
+                UI_ClearLine(8);
+                UI_DrawText(0, 8, "DTMF: *388884   ", SCALE_TINY);
+                LCD_UpdatePages(0, 1);
+                
+                VRFR_RenderDiagnostics();
+                
+                VRFR_Test_Send_FreqJump(-1);
+            } else if (key == KEYID_PTT) {
+                // Pre-calcular la semilla para mostrarla
+                uint32_t simulated_seed = g_aniTable.current_seed;
+                // El motor XORShift avanza el estado, por lo que pre-calculamos para mostrar
+                uint32_t next_seed = simulated_seed;
+                next_seed ^= next_seed << 13;
+                next_seed ^= next_seed >> 17;
+                next_seed ^= next_seed << 5;
+                
+                char buf[30];
+                UI_ClearLine(0);
+                UI_DrawText(0, 0, "[TX] RND SEED", SCALE_TINY);
+                UI_ClearLine(8);
+                sprintf(buf, "DTMF: *4%05X   ", (unsigned int)(next_seed & 0xFFFFF));
+                UI_DrawText(0, 8, buf, SCALE_TINY);
+                LCD_UpdatePages(0, 1);
+                
+                VRFR_RenderDiagnostics();
+                
+                VRFR_Test_Send_Random(); // Envía y aplica la nueva semilla
+            } else {
+                UI_ClearLine(0);
+                UI_DrawText(0, 0, Debug_GetKeyName(key), SCALE_TINY);
+                LCD_UpdatePages(0, 1);
+                
+                VRFR_RenderDiagnostics();
+            }
+        } // Fin del bloque UI_STATE_TEST_BENCH
+        break;
 
         default:
             g_uiState = UI_STATE_DEBUG_MAPPING;

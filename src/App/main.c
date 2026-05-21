@@ -110,10 +110,11 @@ int main(void)
     // Hardware Watchdog activation: delay until all slow startup tasks complete
     WDT_Init();
     
-    g_uiState = UI_STATE_DEBUG_MAPPING;
+    g_uiState = UI_STATE_TEST_BENCH;
     Light_LedTopToggle();
     SC5260_ClearArea(0, 0, 128, 64, 0);
-    UI_DrawText(4, 20, "DEBUG MODE", SCALE_NORMAL);
+    // TEST BENCH inicialmente vacío o con indicación de que está listo
+    UI_DrawText(20, 24, "WAITING CMD...", SCALE_NORMAL);
     LCD_UpdateFullScreen();
     
     while(1)
