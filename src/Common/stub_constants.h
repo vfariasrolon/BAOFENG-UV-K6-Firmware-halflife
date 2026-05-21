@@ -18,30 +18,8 @@
 #include "PublType.h"
 
 /* ------------------------------------------------------------------ */
-/*  KEYID — Identificadores de teclas                                  */
+/*  KEYID movidos a keyboard.h                                         */
 /* ------------------------------------------------------------------ */
-#define KEYID_NONE          0x00
-#define KEYID_MENU          0x01
-#define KEYID_UP            0x02
-#define KEYID_DOWN          0x03
-#define KEYID_EXIT          0x04
-#define KEYID_0             0x10
-#define KEYID_1             0x11
-#define KEYID_2             0x12
-#define KEYID_3             0x13
-#define KEYID_4             0x14
-#define KEYID_5             0x15
-#define KEYID_6             0x16
-#define KEYID_7             0x17
-#define KEYID_8             0x18
-#define KEYID_9             0x19
-#define KEYID_STAR          0x1A
-#define KEYID_WELL          0x1B    /* tecla # */
-#define KEYID_SIDEKEY1      0x1C
-#define KEYID_SIDEKEY2      0x1D
-#define KEYID_SCAN          0x1E
-#define KEYID_PWRSW         0x1F
-#define KEYID_AB            0x20    /* A/B switch — usado en boot OTAP */
 
 /* ------------------------------------------------------------------ */
 /*  BEEP — Tipos de pitido                                             */
@@ -112,11 +90,7 @@
 /*  Las reales vienen de RadioCommon.h / PublType.h                    */
 /* ------------------------------------------------------------------ */
 
-/* STR_KEYSCAN — estado del scanner de teclado */
-typedef struct {
-    U8 keyEvent;
-    U8 keyPara;
-} STR_KEYSCAN;
+/* STR_KEYSCAN movido a keyboard.h */
 
 /* STR_SCAN_INFO — estado del scanner de frecuencia */
 typedef struct {
@@ -148,6 +122,6 @@ extern U8                   g_rfTxState;
 extern U8                   g_rfRxState;
 extern STR_SCAN_INFO        g_scanInfo;
 extern STR_RADIO_INFORM     g_radioInform;
-extern STR_KEYSCAN          g_keyScan;
+/* g_keyScan movido a keyboard.h */
 
 #endif /* __STUB_CONSTANTS_H */

@@ -20,10 +20,7 @@ void RF_Task(void)
     /* stub — BK4829 RF driver no disponible en Fase 1 */
 }
 
-void KEY_ScanTask(void)
-{
-    /* stub — KeyScan driver no disponible en Fase 1 */
-}
+
 
 void PTT_ScanTask(void)
 {
@@ -87,8 +84,7 @@ void EnterProgromMode(void)      { /* stub */ }
 void EnterFlashProgromMode(void) { /* stub */ }
 void MasterPairInit(void)        { /* stub */ }
 
-/* GetKeyCode devuelve KEYID_NONE para que main() no entre en los bloques de boot */
-U8 GetKeyCode(void)              { return KEYID_NONE; }
+/* GetKeyCode removido por estar en keyboard.c */
 
 /* Key / event stubs */
 U8 Key_GetRealEvent(void)        { return KEYID_NONE; }
@@ -96,11 +92,7 @@ U8 Key_GetRealEvent(void)        { return KEYID_NONE; }
 /* Beep stub — silencioso */
 void BeepOut(U8 beepType)        { (void)beepType; }
 
-/* LCD stubs */
-void SC5260_ClearArea(U8 x, U8 y, U8 w, U8 h, U8 color)
-    { (void)x; (void)y; (void)w; (void)h; (void)color; }
-void LCD_DisplayText(U8 x, U8 y, U8 *text, U8 fontSize, U8 mode)
-    { (void)x; (void)y; (void)text; (void)fontSize; (void)mode; }
+/* LCD stubs (Ya no quedan stubs de LCD aquí) */
 
 /* Half-Life mode stubs */
 void HL_SetMode(U8 mode)         { (void)mode; }
@@ -142,8 +134,4 @@ STR_RADIO_INFORM    g_radioInform = {
     .txPower      = 1,
 };
 
-STR_KEYSCAN         g_keyScan   = {
-    .keyEvent = KEYID_NONE,
-    .keyPara  = 0,
-};
 

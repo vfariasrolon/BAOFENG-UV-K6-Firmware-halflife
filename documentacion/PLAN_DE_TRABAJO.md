@@ -16,13 +16,17 @@ MANUAL_DE_USUARIO_HALFLIFE.md (La Visión): Esto le da al agente el "qué" estam
 
 ## 2. Plan de Trabajo (Próximos Pasos)
 - [x] **Etapa 1:** Implementar Blink Test (GPIO/LED).
-- [ ] **Etapa 2:** Driver de Teclado y Audio (Interacción básica).
-- [ ] **Etapa 3:** Sistema de Menús minimalista (GUI/LCD).
-- [ ] **Etapa 4:** Protocolo Half-Life (Telemetría/OTAP).
+- [x] **Etapa 2:** Driver de Teclado (Matriz y Botones Discretos PTT/SideKeys).
+- [x] **Etapa 3:** Sistema de Gestión de Eventos (Máquina de Estados FSM).
+- [ ] **Etapa 4:** Sistema de Menús minimalista (GUI/LCD).
+- [ ] **Etapa 5:** Protocolo Half-Life (Telemetría/OTAP).
 
 ## 3. Registro de Cambios (Log de Integridad)
+* *2026-05-21:* Auditoría de Integridad (Hardened Core). Inyectado modificador `volatile` en `g_uiState` y `g_keyScan` para prevenir optimizaciones del compilador. Reemplazados bucles `while` crudos en el driver SPI (`Sc5260.c`) por conteo con `timeout`. Eliminado `DelayMs(100)` bloqueante en `Protocol_VRFR_Transmit()`, trasladando el parpadeo del LED al planificador asíncrono (`App_100msTask`). Marcado `EnterResetMode` en la UI antigua como trampa peligrosa (`TRAP DANGER`).
+* *2026-05-21:* Completada Etapa 3. Refactorización de AppRunTask con inyección de Máquina de Estados Finita (AppEventManager). Implementado flujo VRFR y debug visual.
+* *2026-05-21:* Parche Crítico Etapa 2. Desvinculado el escaneo del teclado (KEY_ScanTask y ExtraKeys_ScanTask) del timer de hardware SysTick (g_10msFlag), implementando polling directo en el bucle principal y una máquina de estados de dos fases para el antirrebote del PTT (PA10).
+* *2026-05-21:* Completada Etapa 2 y 2.1. Driver de teclado por polling (matriz principal) y botones discretos (PTT, SideKey1, SideKey2) desvinculando bloqueos del USART de fábrica.
 * *2026-05-21:* Completada Etapa 1. Inyección de script de arranque minimalista (startup.S), extracción e integración de dependencias GPIO/RCC/IWDG al src/Driver, limpieza de headers y parpadeo funcional del LED.
-* *YYYY-MM-DD:* Integración de headers del driver KD32F328. Eliminación de dependencias circulares en includes.h.
 
 ## 4. Reglas para Agentes
 1. `src/` es zona de escritura. Mantener el minimalismo (No añadir código muerto).

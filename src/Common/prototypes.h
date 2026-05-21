@@ -32,6 +32,27 @@ extern void Board_Watchdog_Init(void);
 extern void LED_Init(void);
 extern void LED_Toggle(void);
 
+/*  Keyboard Driver — src/Driver/keyboard.h                           */
+extern void Keyboard_Init(void);
+extern void KEY_ScanTask(void);
+extern void ExtraKeys_Init(void);
+extern void ExtraKeys_ScanTask(void);
+
+/*  LCD Driver — src/Driver/Sc5260.h                                  */
+extern void SPI2_Init(void);
+extern void SC5260_Init(void);
+extern void SC5260_ClearArea(U8 posY, U8 posX, U8 length, U8 wide, U8 fillData);
+extern void LCD_UpdateFullScreen(void);
+extern void LCD_RunDiagnosticTest(void);
+extern void LCD_ShowAlphabetTest(void);
+extern void LCD_DrawIcon(U8 iconID, U8 x, U8 y);
+extern void LCD_DrawLogo(void);
+
+/*  Light System — src/Driver/light_system.h                          */
+extern void LightSystem_Init(void);
+extern void Light_BacklightToggle(void);
+extern void Light_LedTopToggle(void);
+
 /* ------------------------------------------------------------------ */
 /*  Delay — src_sucio/src/Common/Delay.h + Delay.c                    */
 /* ------------------------------------------------------------------ */
@@ -116,7 +137,6 @@ extern void DisplaySoftVersion(void);
 extern void DisplayHomePage(void);
 extern void LCD_BackLightSetOn(void);
 extern void LCD_CheckBackLight(void);
-extern void LCD_DisplayText(U8 x, U8 y, U8 *text, U8 fontSize, U8 mode);
 extern void SC5260_ClearArea(U8 x, U8 y, U8 w, U8 h, U8 color);
 
 /* ------------------------------------------------------------------ */

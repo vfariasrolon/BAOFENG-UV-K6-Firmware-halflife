@@ -21,6 +21,7 @@
 
 /* --- Fase 1: Constantes, tipos y globals stub --- */
 #include "stub_constants.h"
+#include "../Driver/keyboard.h"
 
 /* --- Fase 1: Prototipos de todas las funciones externas --- */
 #include "prototypes.h"

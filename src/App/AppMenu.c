@@ -1,5 +1,6 @@
 #include "includes.h"
 #include "KD32f328_iwdg.h" 
+#include "../Driver/minifont.h"
 
 STR_MENUINFO  g_menuInfo;
 
@@ -771,7 +772,7 @@ extern void SaveChDelete(void)
             {
                 sprintf(disBuf,"%-*.*s",16,16,"Wait...");;
             }
-            LCD_DisplayText(47, 0, (U8 *)disBuf, FONTSIZE_16x16,LCD_DIS_NORMAL);
+            UI_DrawText(47, 0, disBuf, SCALE_NORMAL);
             LCD_UpdateWorkAre();
             
             //初�?�化为默认信道信�?
@@ -830,9 +831,12 @@ extern void EnterResetMode(void)
     {
         sprintf(disBuf,"%-*.*s",16,16,"Sure to Reset?");
     }
-    LCD_DisplayText(47, 0, (U8 *)disBuf, FONTSIZE_16x16,LCD_DIS_NORMAL);
+    UI_DrawText(47, 0, disBuf, SCALE_NORMAL);
     LCD_UpdateWorkAre();
 
+    // TODO: TRAP DANGER - DO NOT CALL
+    // Este bucle infinito secuestra el sistema operativo principal y reimplementa 
+    // el scheduler de manera insegura. Peligro de HardFault.
     while(1)
     {
         if(g_10msFlag)
@@ -881,7 +885,7 @@ extern void EnterResetMode(void)
     {
         sprintf(disBuf,"%-*.*s",16,16,"Please Wait...");
     }
-    LCD_DisplayText(47, 0, (U8 *)disBuf, FONTSIZE_16x16,LCD_DIS_NORMAL);
+    UI_DrawText(47, 0, disBuf, SCALE_NORMAL);
     LCD_UpdateWorkAre();
 
     if(g_menuInfo.selectedItem == 1)

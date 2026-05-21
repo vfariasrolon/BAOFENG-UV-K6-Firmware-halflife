@@ -1,6 +1,7 @@
 #include "includes.h"
 #include "KD32f328_iwdg.h"
 #include "AppHalfLife.h"
+#include "AppEventManager.h"
 
 void App_10msTask(void)
 {
@@ -11,6 +12,7 @@ void App_10msTask(void)
 
     RF_Task();
     KEY_ScanTask();
+    ExtraKeys_ScanTask();
     PTT_ScanTask();
     
     
@@ -29,10 +31,17 @@ extern void App_50msTask(void)
     LCD_CheckBackLight();
 }
 
+extern volatile U8 g_vrfr_tx_blink_counter;
+
 extern void App_100msTask(void)
 {
     g_100msFlag = FALSE;
     
+    /* Procesar parpadeo no bloqueante de transmisión VRFR */
+    if (g_vrfr_tx_blink_counter > 0) {
+        LED_Toggle();
+        g_vrfr_tx_blink_counter--;
+    }
     
     CheckExitMenu();
     CheckPowerOff();
@@ -51,110 +60,12 @@ extern void App_500msTask(void)
 
 extern void AppRunTask(void)
 {
-    U8 keyEvent;
-    
-    // Safety sanitization of active g_CurrentVfo pointers
-    HL_SanitizeVfoPointers();
-    
-    // Half-Life Special modes loop execution
-    if (HL_GetMode() == MODE_SLAVE_LISTEN)
-    {
-        SlaveListenTask();
-        Audio_PlayTask();
-        return;
-    }
-    else if (HL_GetMode() == MODE_MASTER_PAIR)
-    {
-        MasterPairTask();
-        Audio_PlayTask();
-        return;
-    }
-    
-    switch(g_rfState)
-    {
-        case RF_TX:
-            Radio_TxKeyTone(g_keyScan.keyEvent,g_keyScan.keyPara);
-            break;
-        case RF_RX:
-        default:
-           if(g_keyScan.keyEvent != KEYID_NONE)
-           {
-               keyEvent = Key_GetRealEvent();
- 
-               
-               
-               switch(HL_GetMode())
-               {
-                   case MODE_SLAVE_LISTEN:
-                       SlaveListenTask();
-                       break;
-                   case MODE_MASTER_PAIR:
-                       MasterPairTask();
-                       break;
-                   case MODE_DASHBOARD:
-                       HL_KeyProcess_Dashboard(keyEvent);
-                       break;
-                   case MODE_HL_MENU:
-                       HL_KeyProcess_Menu(keyEvent);
-                       break;
-                   case MODE_DTMF_ANI:
-                       HL_KeyProcess_AniContacts(keyEvent);
-                       break;
-                   case MODE_MENU:
-                       if (keyEvent == KEYID_SCAN)
-                       {
-                           HL_SetMode(MODE_MASTER_PAIR);
-                           BeepOut(BEEP_FASTSW);
-                           MasterPairInit();
-                       }
-                       else
-                       {
-                           KeyProcess_Menu(keyEvent);
-                       }
-                       break;
-                   case MODE_FM:
-                       
-                       break;  
-                   case MODE_MONI:
-                       KeyProcess_Moni(keyEvent);
-                       break;   
-                   case MODE_SCAN:
-                       KeyProcess_Scan(keyEvent);
-                       break; 
-                   case MODE_SEARCH:
-                       
-                       break;  
-                   case MODE_SCAN_QT:
-                       
-                       break;     
-                   case MODE_WEATHER:
-                       
-                       break;  
-                   case MODE_STOPWATCH:
-                       
-                       break;    
-                   case MODE_DTMF:
-                       KeyProcess_DtmfInput(keyEvent);
-                       break;
-                   case MODE_MAIN:
-                   default:
-                       KeyProcess_Main(keyEvent);
-                       break;
-               }
-           }
-           Audio_PlayTask();
-           DtmfReceiveTask();
-           break;
-    }
-
-    if(HL_GetMode() == MODE_PROGRAM)
-    {
-        EnterProgromMode();
-    }
-
-    if(HL_GetMode() == MODE_FLASH_PROGRAM)
-    {
-        EnterFlashProgromMode();
+    /* Despachador Minimalista de Eventos (FSM) */
+    if (g_keyScan.keyEvent != KEYID_NONE) {
+        App_EventManager(g_keyScan.keyEvent);
+        
+        /* Limpiar buffer de entrada para no repetir el procesamiento */
+        g_keyScan.keyEvent = KEYID_NONE;
     }
 }
 

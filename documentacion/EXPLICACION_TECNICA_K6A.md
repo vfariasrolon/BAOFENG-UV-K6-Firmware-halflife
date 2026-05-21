@@ -56,6 +56,12 @@ El teclado frontal se organiza en una matriz física de **4 columnas × 4 filas*
 2. **Traducción de Configuración:** Dependiendo de la función programada por el usuario en el menú de la radio (menú PF2), el firmware convierte el evento físico en un evento lógico (por ejemplo, **`KEYID_FM`** para encender la radio FM).
 3. **El Punto de Inserción Perfecto:** Interceptamos el evento en la raíz lógica del sistema: la función `SideKey_Process(U8 realEvent)` dentro de `src/App/AppMain.c`. Al redirigir `case KEYID_FM:`, garantizamos que presionar el botón lateral inferior siempre lance el menú unificado de Half-Life, manteniendo la tecla `*` y las demás teclas del teclado frontal 100% nativas y libres para sus propósitos originales.
 
+### Polling Bare-Metal y Antirrebote del PTT (Fase 1 Minifirm)
+En la refactorización bare-metal del firmware (minifirm), los temporizadores de hardware (`SysTick`) están temporalmente inhabilitados. Esto rompe la dependencia original del escaneo del teclado que vivía dentro de `App_10msTask`.
+Para resolver esto, el firmware implementa:
+1. **Polling en Bucle Principal:** `KEY_ScanTask()` y `ExtraKeys_ScanTask()` se llaman directamente en el bucle `while(1)` infinito.
+2. **Máquina de Estados de Dos Fases:** Como el bucle se ejecuta miles de veces por segundo, mantener el PTT (PA10) presionado provocaría una avalancha de eventos. `ExtraKeys_ScanTask` utiliza una variable `stableExtKey` que garantiza que el evento `KEYSTATE_CLICKED` se dispare **exactamente una vez** al detectar el flanco de bajada (conexión a tierra), esperando pasivamente a que la tecla sea liberada (`KEYID_NONE`) antes de volver a armarse.
+
 ---
 
 ## 4. ¿Cómo Funciona la Escritura en la Flash (Bootloader)?
