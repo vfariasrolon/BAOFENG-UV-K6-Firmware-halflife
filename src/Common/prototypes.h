@@ -28,6 +28,10 @@ extern void AppRunTask(void);
 extern void Board_Init(void);
 extern void Board_Watchdog_Init(void);
 
+/*  LED Driver — src/Driver/led.h                                     */
+extern void LED_Init(void);
+extern void LED_Toggle(void);
+
 /* ------------------------------------------------------------------ */
 /*  Delay — src_sucio/src/Common/Delay.h + Delay.c                    */
 /* ------------------------------------------------------------------ */

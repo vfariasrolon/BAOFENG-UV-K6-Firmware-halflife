@@ -15,18 +15,7 @@
 /* ------------------------------------------------------------------ */
 /*  Tipos base (si PublType.h no está disponible)                      */
 /* ------------------------------------------------------------------ */
-#ifndef _PUBLTYPE_H
-    typedef unsigned char       U8;
-    typedef unsigned short      U16;
-    typedef unsigned int        U32;
-    typedef unsigned char       Boolean;
-    typedef char                String;
-    #define TRUE    1
-    #define FALSE   0
-    #ifndef NULL
-        #define NULL    ((void*)0)
-    #endif
-#endif
+#include "PublType.h"
 
 /* ------------------------------------------------------------------ */
 /*  KEYID — Identificadores de teclas                                  */

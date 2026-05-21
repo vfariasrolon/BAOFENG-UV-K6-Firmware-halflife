@@ -12,7 +12,7 @@ typedef char     String;
 
 #define TRUE  true
 #define FALSE false
-#define OK    0
-#define ERROR 1
+// Renombramos ERROR a ERR_VAL para evitar conflictos con el driver del chip que usa "ERROR" como enum
+#define ERR_VAL 1 
 
 #endif

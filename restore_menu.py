@@ -1,0 +1,2 @@
+"python3 -c \"\nwith open('src/App/AppMenu.c', 'rb') as f:\n    raw_data = f.read()\n\nif b'\\r\\n' in raw_data:\n    newline = '\\r\\n'\nelse:\n    newline = '\\n'\n\ncontent = raw_data.decode('gbk', errors='replace')\nlines = content.splitlines()\n\nidx_
+<truncated 4823 bytes>

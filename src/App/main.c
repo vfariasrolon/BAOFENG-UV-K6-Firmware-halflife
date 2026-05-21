@@ -20,6 +20,7 @@ void BeepPowerOn(void)
 int main(void)
 {   
     Board_Init();    
+    LED_Init(); // Inicializamos el LED para el Blink Test
     RadioConfig_Init();
     g_radioInform.language = LANG_EN; // Force English language globally to remove all Chinese voice and menus
     UI_DisplayPowerOn();
@@ -84,6 +85,10 @@ int main(void)
     
     while(1)
     {
+        // Blink Test
+        LED_Toggle();
+        DelayMs(500);
+
         //10ms运行一次
         if(g_10msFlag)
         {
