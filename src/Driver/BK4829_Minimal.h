@@ -5,6 +5,7 @@
 
 // Inicialización de energía y frecuencia (433.050 MHz)
 void BK4829_Init(void);
+void BK4829_ApplyProfile(uint8_t profile_id);
 void BK4829_ResetBus(void);
 uint16_t BK4829_ReadReg(uint8_t devAddr);
 void BK4829_WriteReg(uint8_t devAddr, uint16_t devData);

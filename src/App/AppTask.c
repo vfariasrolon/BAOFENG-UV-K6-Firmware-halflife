@@ -2,6 +2,8 @@
 #include "KD32f328_iwdg.h"
 #include "AppHalfLife.h"
 #include "AppEventManager.h"
+#include "../Protocol/vrfr_proto.h"
+#include "../Driver/Sc5260.h"
 
 void App_10msTask(void)
 {
@@ -54,10 +56,14 @@ extern void App_100msTask(void)
 extern void App_500msTask(void)
 {
     g_500msFlag = FALSE;
-    BatteryCheckTask();
     
     if (g_uiState != UI_STATE_TEST_BENCH) {
+        BatteryCheckTask();
         CalculateSqlLevel();
+    } else {
+        // Forzar redibujado de nuestra UI cada 500ms por si alguna tarea OEM ensucia la pantalla
+        VRFR_RenderDiagnostics();
+        LCD_UpdateFullScreen();
     }
     
     CheckSjTimeout();

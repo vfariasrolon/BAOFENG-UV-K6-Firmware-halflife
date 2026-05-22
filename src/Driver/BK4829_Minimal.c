@@ -6,6 +6,8 @@
 #include "../Driver/Sc5260.h"
 #include "../Driver/watchdog.h"
 
+uint32_t g_test_freq = 43305000;
+
 // ==========================================
 // MACROS PARA BIT-BANGING DEL SPI DEL BK4829
 // ==========================================
@@ -158,75 +160,226 @@ void BK4829_Init(void) {
     // RF Switch UHF RX: A13=HIGH, A14=LOW
     GPIOA->BRR  = GPIO_Pin_14;
     GPIOA->BSRR = GPIO_Pin_13;
-    
     // 1. Soft Reset
     BK4829_WriteReg(0x00, 0x0000);
     DelayMs(10);
     
-    // 2. Inicialización COMPLETA según DevFD6818.c (Rfic_Init con g_isBK4829)
-    // Habilitar LDO/Band Gap/Clock
-    BK4829_WriteReg(0x37, 0x9F1F);
-    BK4829_WriteReg(0x36, 0x0022);
-    
-    BK4829_WriteReg(0x36, 0x0022); // Reloj 26MHz
-    
-    // 3. Configuración de AGC / LNA Gains para BK4829
-    BK4829_WriteReg(0x10, 0x0318);
-    BK4829_WriteReg(0x11, 0x033A);
-    BK4829_WriteReg(0x12, 0x03DB);
-    BK4829_WriteReg(0x13, 0x03DF);
-    BK4829_WriteReg(0x14, 0x0210);
-    BK4829_WriteReg(0x49, 0x2AB2);
-    BK4829_WriteReg(0x7B, 0x73DC);
-    
-    // 4. Audio, PLL, VCO y Modulación (Bypass y Offset)
-    BK4829_WriteReg(0x40, 0x3516);
-    BK4829_WriteReg(0x1C, 0x07C0);
-    BK4829_WriteReg(0x1D, 0xE555);
-    BK4829_WriteReg(0x1E, 0x4C58);
-    BK4829_WriteReg(0x1F, 0xC65A);
-    BK4829_WriteReg(0x3E, 0x94C6);
-    
-    // 5. Filtros y Preamplificación de Audio
-    BK4829_WriteReg(0x73, 0x4691);
-    BK4829_WriteReg(0x77, 0x88EF);
-    BK4829_WriteReg(0x28, 0x0B40);
-    BK4829_WriteReg(0x29, 0xAA00);
-    BK4829_WriteReg(0x2A, 0x6600);
-    BK4829_WriteReg(0x2C, 0x1822);
-    BK4829_WriteReg(0x2F, 0x9890);
-    BK4829_WriteReg(0x53, 0x2028);
-    BK4829_WriteReg(0x7E, 0x303E);
-    BK4829_WriteReg(0x46, 0x600A);
-    BK4829_WriteReg(0x4A, 0x5430);
-    BK4829_WriteReg(0x07, 0x61CE);
-    
-    // 6. Configurar Modo de Recepción inicial (Secuencia de reinicio de cadena de audio para BK4829)
-    BK4829_WriteReg(0x30, 0x0119); // Reset filters BK4829
-    BK4829_WriteReg(0x3B, 0x0A0F); // Re-inicia cadena de audio RF a DAC
-    BK4829_WriteReg(0x31, 0x1000);
-    
-    // Reloj de Referencia / Cristal
-    BK4829_WriteReg(0x01, 0x3FF0);
-    
-    // Micrófono y ganancia
-    BK4829_WriteReg(0x19, 0x1041);
-    BK4829_WriteReg(0x7D, 0xE952);
-    
-    // Registro Maestro del Squelch por defecto
-    BK4829_WriteReg(0x48, 0x2340);
-    
-    // Activar decodificador DTMF globalmente (Bit 15 = 1, y Threshold)
-    BK4829_WriteReg(0x24, 0x807F | (20 << 7));
-    
-    // Fijar Frecuencia a 433.050 MHz
-    uint32_t calcFreq = 43305000;
-    BK4829_WriteReg(0x38, (uint16_t)calcFreq);
-    BK4829_WriteReg(0x39, (uint16_t)(calcFreq >> 16));
-    
-    // Configurar Ancho de Banda IF (Wideband) y AGC
-    BK4829_WriteReg(0x43, 0x3028);
-    BK4829_WriteReg(0x47, 0x6040); // AGC Table
+    BK4829_ApplyProfile(0);
+}
+
+void BK4829_ApplyProfile(uint8_t profile_id) {
+    // Siempre Soft Reset antes de cambiar de perfil
+    BK4829_WriteReg(0x00, 0x0000);
+    DelayMs(10);
+
+    if (profile_id == 0) {
+        // PERFIL 0: Nuestro Baremetal Actual
+        BK4829_WriteReg(0x37, 0x9F1F);
+        BK4829_WriteReg(0x36, 0x0022); // Reloj 26MHz
+        
+        BK4829_WriteReg(0x10, 0x0318);
+        BK4829_WriteReg(0x11, 0x033A);
+        BK4829_WriteReg(0x12, 0x03DB);
+        BK4829_WriteReg(0x13, 0x03DF);
+        BK4829_WriteReg(0x14, 0x0210);
+        BK4829_WriteReg(0x49, 0x2AB2);
+        BK4829_WriteReg(0x7B, 0x73DC);
+        
+        BK4829_WriteReg(0x40, 0x3516);
+        BK4829_WriteReg(0x1C, 0x07C0);
+        BK4829_WriteReg(0x1D, 0xE555);
+        BK4829_WriteReg(0x1E, 0x4C58);
+        BK4829_WriteReg(0x1F, 0x5454); // rfpll_regvco_vbit=0001
+        BK4829_WriteReg(0x3E, 0xA037); // fijo
+        BK4829_WriteReg(0x4F, 0x3732); // bandpass noise
+        BK4829_WriteReg(0x26, 0x13A0); // mejorar distorsion
+        
+        BK4829_WriteReg(0x73, 0x4691);
+        BK4829_WriteReg(0x77, 0x88EF);
+        BK4829_WriteReg(0x28, 0x0B40);
+        BK4829_WriteReg(0x29, 0xAA00);
+        BK4829_WriteReg(0x2A, 0x6600);
+        BK4829_WriteReg(0x2C, 0x1822);
+        BK4829_WriteReg(0x2F, 0x9890);
+        BK4829_WriteReg(0x53, 0x2028);
+        BK4829_WriteReg(0x7E, 0x303E);
+        BK4829_WriteReg(0x46, 0x600A);
+        BK4829_WriteReg(0x4A, 0x5430);
+        BK4829_WriteReg(0x07, 0x61CE);
+        
+        BK4829_WriteReg(0x30, 0x0119); // Reset filters BK4829
+        BK4829_WriteReg(0x31, 0x8206); // Control de ganancia automático (AGC)
+        BK4829_WriteReg(0x32, 0x0060); // Filtros IF (Frecuencia Intermedia)
+        BK4829_WriteReg(0x3B, 0x0A0F); // Configuración de ancho de banda (Wide/Narrow)
+        
+        BK4829_WriteReg(0x51, 0x0000); // CTCSS OFF
+        BK4829_WriteReg(0x52, 0x0000); // DCS OFF
+        
+        BK4829_WriteReg(0x01, 0x3FF0); // Cristal
+        BK4829_WriteReg(0x19, 0x1041);
+        BK4829_WriteReg(0x7D, 0xE952);
+        BK4829_WriteReg(0x48, 0x2340);
+        
+        BK4829_WriteReg(0x24, 0x807F | (20 << 7));
+        BK4829_WriteReg(0x38, (uint16_t)g_test_freq);
+        BK4829_WriteReg(0x39, (uint16_t)(g_test_freq >> 16));
+        BK4829_WriteReg(0x43, 0x3028);
+        BK4829_WriteReg(0x47, 0x6040); // AGC Table
+    } 
+    else if (profile_id == 1) {
+        // PERFIL 1: CAPTURA EXACTA SPI (SNOOPER) - GOLDEN SEQUENCE
+        BK4829_WriteReg(0x00, 0x0000);
+        BK4829_WriteReg(0x37, 0x9F1F);
+        BK4829_WriteReg(0x36, 0x0022);
+        BK4829_WriteReg(0x10, 0x0318);
+        BK4829_WriteReg(0x11, 0x033A);
+        BK4829_WriteReg(0x12, 0x03DB);
+        BK4829_WriteReg(0x13, 0x03DF);
+        BK4829_WriteReg(0x14, 0x0210);
+        BK4829_WriteReg(0x49, 0x2AB2);
+        BK4829_WriteReg(0x7B, 0x73DC);
+        BK4829_WriteReg(0x40, 0x3516);
+        BK4829_WriteReg(0x1C, 0x07C0);
+        BK4829_WriteReg(0x1D, 0xE555);
+        BK4829_WriteReg(0x1E, 0x4C58);
+        BK4829_WriteReg(0x1F, 0xC65A);
+        BK4829_WriteReg(0x3E, 0x94C6);
+        BK4829_WriteReg(0x73, 0x4691);
+        BK4829_WriteReg(0x77, 0x88EF);
+        BK4829_WriteReg(0x28, 0x0B40);
+        BK4829_WriteReg(0x29, 0xAA00);
+        BK4829_WriteReg(0x2A, 0x6600);
+        BK4829_WriteReg(0x2C, 0x1822);
+        BK4829_WriteReg(0x2F, 0x9890);
+        BK4829_WriteReg(0x53, 0x2028);
+        BK4829_WriteReg(0x7E, 0x303E);
+        BK4829_WriteReg(0x46, 0x600A);
+        BK4829_WriteReg(0x4A, 0x5430);
+        BK4829_WriteReg(0x07, 0x61CE);
+        BK4829_WriteReg(0x09, 0x006F);
+        BK4829_WriteReg(0x09, 0x106B);
+        BK4829_WriteReg(0x09, 0x2067);
+        BK4829_WriteReg(0x09, 0x3062);
+        BK4829_WriteReg(0x09, 0x4050);
+        BK4829_WriteReg(0x09, 0x5047);
+        BK4829_WriteReg(0x09, 0x603A);
+        BK4829_WriteReg(0x09, 0x702C);
+        BK4829_WriteReg(0x09, 0x8041);
+        BK4829_WriteReg(0x09, 0x9037);
+        BK4829_WriteReg(0x09, 0xA025);
+        BK4829_WriteReg(0x09, 0xB017);
+        BK4829_WriteReg(0x09, 0xC0E4);
+        BK4829_WriteReg(0x09, 0xD0CB);
+        BK4829_WriteReg(0x09, 0xE0B5);
+        BK4829_WriteReg(0x09, 0xF09F);
+        BK4829_WriteReg(0x72, 0x3065);
+        BK4829_WriteReg(0x5C, 0x5665);
+        BK4829_WriteReg(0x5D, 0x0F00);
+        BK4829_WriteReg(0x01, 0x3FF0);
+        BK4829_WriteReg(0x19, 0x1041);
+        BK4829_WriteReg(0x7D, 0xE952);
+        
+        // --- AF DAC y Control de Audio ---
+        // En la captura de arranque, 0x48 era 0x2340 (MUTE). Cuando se abre el squelch,
+        // el firmware original escribe 0x47=0x6042 y 0x48=0x82DF (AF_DAC_EN = 1).
+        BK4829_WriteReg(0x47, 0x6042);
+        BK4829_WriteReg(0x48, 0xB3FF); // B3FF = DAC Enable (Bit 15=1) + Max Vol
+        
+        BK4829_WriteReg(0x30, 0xBFF1);
+        
+        // --- Tuning a 433.050 MHz (Extracción 10:40:40 y 11:02:24) ---
+        BK4829_WriteReg(0x30, 0x0000); // IDLE
+        BK4829_WriteReg(0x38, (uint16_t)g_test_freq); // 0xC83D
+        BK4829_WriteReg(0x39, (uint16_t)(g_test_freq >> 16)); // 0x0294
+        BK4829_WriteReg(0x43, 0x3028);
+        BK4829_WriteReg(0x78, 0x2040); // Umbral de Squelch
+        
+        // --- Configuración de Squelch Digital / Filtros ---
+        // Desactivamos CTCSS estricto (0x904B) y ponemos 0x0000 para abrir el audio a ruido analógico libre
+        // y evitar que el chip silencie por hardware.
+        BK4829_WriteReg(0x51, 0x0000); 
+        BK4829_WriteReg(0x07, 0x0810);
+        BK4829_WriteReg(0x07, 0x21CD);
+        BK4829_WriteReg(0x52, 0x0292);
+        
+        BK4829_WriteReg(0x31, 0xFFFD); // AGC según captura de las 11:02:24
+        BK4829_WriteReg(0x40, 0x34E0);
+        // La habilitación RX se hace al final de la función
+    }
+    else if (profile_id == 2) {
+        // PERFIL 2: BK4819 Legacy OEM Crudo
+        BK4829_WriteReg(0x00, 0x8000); // BK4819 extra reset
+        BK4829_WriteReg(0x00, 0x0000);
+        BK4829_WriteReg(0x37, 0x1D0F); // REG_37 genérico
+        
+        BK4829_WriteReg(0x13, 0x03BE);
+        BK4829_WriteReg(0x12, 0x037B);
+        BK4829_WriteReg(0x11, 0x027B);
+        BK4829_WriteReg(0x10, 0x007A);
+        BK4829_WriteReg(0x14, 0x0019);
+        BK4829_WriteReg(0x49, 0x2A38);
+        BK4829_WriteReg(0x7B, 0x8420);
+        
+        BK4829_WriteReg(0x19, 0x1041);
+        BK4829_WriteReg(0x2A, 0x4F18);
+        
+        BK4829_WriteReg(0x40, 0x3500);
+        BK4829_WriteReg(0x1C, 0x0320);
+        BK4829_WriteReg(0x1D, 0xE756);
+        BK4829_WriteReg(0x1E, 0x4658);
+        BK4829_WriteReg(0x1F, 0x444A);
+        BK4829_WriteReg(0x3E, 0x98C6);
+        
+        BK4829_WriteReg(0x73, 0x3691);
+        BK4829_WriteReg(0x77, 0x08E2);
+        BK4829_WriteReg(0x28, 0x0B40);
+        BK4829_WriteReg(0x29, 0xBA00);
+        BK4829_WriteReg(0x2C, 0x1812);
+        BK4829_WriteReg(0x2F, 0x8080);
+        BK4829_WriteReg(0x53, 0x0008);
+        BK4829_WriteReg(0x7E, 0x303E);
+        BK4829_WriteReg(0x46, 0x600A);
+        BK4829_WriteReg(0x4A, 0x5430);
+        BK4829_WriteReg(0x07, 0x61CE);
+        
+        // Coeficientes DTMF Crudos OEM
+        BK4829_WriteReg(0x09, 0x006F);
+        BK4829_WriteReg(0x09, 0x106B);
+        BK4829_WriteReg(0x09, 0x2067);
+        BK4829_WriteReg(0x09, 0x3062);
+        BK4829_WriteReg(0x09, 0x4050);
+        BK4829_WriteReg(0x09, 0x5047);
+        BK4829_WriteReg(0x09, 0x603A);
+        BK4829_WriteReg(0x09, 0x702C);
+        BK4829_WriteReg(0x09, 0x8041);
+        BK4829_WriteReg(0x09, 0x9037);
+        BK4829_WriteReg(0x09, 0xA025);
+        BK4829_WriteReg(0x09, 0xB017);
+        BK4829_WriteReg(0x09, 0xC0E4);
+        BK4829_WriteReg(0x09, 0xD0CB);
+        BK4829_WriteReg(0x09, 0xE0B5);
+        BK4829_WriteReg(0x09, 0xF09F);
+        
+        BK4829_WriteReg(0x72, 1024); // FSK_BAUD
+        BK4829_WriteReg(0x5C, 0x5665);
+        BK4829_WriteReg(0x5D, (16 * 2 - 1) << 8); // FSK_LEN
+        
+        BK4829_WriteReg(0x01, 0x3FF0);
+        BK4829_WriteReg(0x7D, 0xE95F); // Max MicSens
+        
+        BK4829_WriteReg(0x48, 0xB3FF); // Max Vol
+        
+        // Rfic_BandInitial
+        BK4829_WriteReg(0x38, (uint16_t)g_test_freq);
+        BK4829_WriteReg(0x39, (uint16_t)(g_test_freq >> 16));
+        BK4829_WriteReg(0x43, 0x3028); // BAND_WIDE
+        
+        BK4829_WriteReg(0x1F, 0x5454);
+        BK4829_WriteReg(0x3E, 0xA037);
+        BK4829_WriteReg(0x77, 0x88EF);
+        BK4829_WriteReg(0x4F, 0x3732);
+        BK4829_WriteReg(0x26, 0x13A0);
+    }
     
     // Forzar switches físicos e internos a modo RX
     BK4829_RxEnable(true);
@@ -274,8 +427,8 @@ void BK4829_RxEnable(bool enable) {
         GPIOA->BRR  = GPIO_Pin_14;
         GPIOA->BSRR = GPIO_Pin_13;
         
-        // Switch interno BK4829: GPIO3=HIGH, GPIO2=LOW para RX
-        BK4829_SetGpio(0x0008, 1); // RF_GPIO3 = HIGH
+        // Switch interno BK4829: Ambos en LOW para RX (Driver original no los enciende)
+        BK4829_SetGpio(0x0008, 0); // RF_GPIO3 = LOW
         BK4829_SetGpio(0x0004, 0); // RF_GPIO2 = LOW
         
         BK4829_WriteReg(0x30, 0xBFF1); // MODO RX ACTIVO NATIVO (0xBFF1)
@@ -296,7 +449,7 @@ void BK4829_SetAudioMute(bool mute) {
     } else {
         // Abrir squelch físico y encender amplificador de la bocina
         BK4829_WriteReg(0x78, 0x0000); // Squelch ABIERTO (Piso de ruido libre)
-        BK4829_WriteReg(0x48, 0x8192); // DAC enable (0x8000) + Volumen + Gain
+        BK4829_WriteReg(0x48, 0xB3FF); // DAC enable (0xB000) + Volumen Máximo (0x03FF)
         GPIOB->BSRR = GPIO_Pin_2; // SpeakerSwitch(ON)
     }
 }

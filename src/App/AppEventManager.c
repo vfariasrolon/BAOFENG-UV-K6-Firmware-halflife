@@ -93,7 +93,29 @@ void App_EventManager(KeyID_Enum key)
             break;
 
         case UI_STATE_TEST_BENCH:
-            // Todo el renderizado y manejo de teclas del Test Bench VRFR ahora se realiza en main.c y vrfr_proto.c
+            // Manejar teclas UP y DOWN para ajustar frecuencia (5 KHz por paso)
+            if (key == KEYID_UP) {
+                extern uint32_t g_test_freq;
+                g_test_freq += 500; // 500 * 10Hz = 5 KHz
+                BK4829_WriteReg(0x38, (uint16_t)g_test_freq);
+                BK4829_WriteReg(0x39, (uint16_t)(g_test_freq >> 16));
+                BeepOut(BEEP_FASTSW);
+            } else if (key == KEYID_DOWN) {
+                extern uint32_t g_test_freq;
+                g_test_freq -= 500; // 5 KHz
+                BK4829_WriteReg(0x38, (uint16_t)g_test_freq);
+                BK4829_WriteReg(0x39, (uint16_t)(g_test_freq >> 16));
+                BeepOut(BEEP_FASTSW);
+            } else if (key == KEYID_1) {
+                BK4829_ApplyProfile(0);
+                BeepOut(BEEP_FASTSW);
+            } else if (key == KEYID_2) {
+                BK4829_ApplyProfile(1);
+                BeepOut(BEEP_FASTSW); DelayMs(100); BeepOut(BEEP_FASTSW);
+            } else if (key == KEYID_3) {
+                BK4829_ApplyProfile(2);
+                BeepOut(BEEP_FASTSW); DelayMs(100); BeepOut(BEEP_FASTSW); DelayMs(100); BeepOut(BEEP_FASTSW);
+            }
             break;
 
         default:
