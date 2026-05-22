@@ -4,24 +4,17 @@
 #include "../Driver/minifont.h"
 #include "../Driver/watchdog.h"
 #include "../Driver/BK4829_Minimal.h"
+#include "../Core/TimeManager.h"
+#include "../Protocol/vrfr_proto.h"
+#include "Auth.h"
+#include "../Core/AudioEngine.h"
+#include "kd32f328xb.h"
+#include "KD32f328_gpio.h"
 
 void BeepPowerOn(void)
 {
-    if(g_radioInform.OpFlag1.Bit.b2 == 1)
-    {
-        BeepOut(BEEP_FMSW2);
-    }
-    else if(g_radioInform.OpFlag1.Bit.b2 == 2)
-    {
-        Audio_PlayVoiceLock(vo_Welcome);
-    }
-    else
-    {
-        DelayMs(300);
-    }
+    AudioEngine_PlayNextelChirp();
 }
-
-#include "KD32f328_gpio.h"
 
 U8 Debug_ReadPTT(void)
 {
@@ -34,57 +27,88 @@ U8 Debug_ReadPTT(void)
 
 int main(void)
 {   
+    WDT_Init(); // Arrancar WDT temprano
+
     Board_Init();    
     LED_Init(); // Inicializamos el LED para el Blink Test
     Keyboard_Init(); // Inicializamos el Teclado para recibir entradas
     ExtraKeys_Init(); // Inicializamos PTT y botones laterales
-    LightSystem_Init(); // Inicializar Linterna y Retroiluminación (ON por defecto)
+    LightSystem_Init(); // Inicializar Linterna y Retroiluminación
     SPI2_Init();      // Inicializar el bus SPI
     SC5260_Init();    // Inicializar la pantalla LCD
 
+    TimeManager_Init(); // Arrancar TIM3 y Scheduler
+    
+    // ---------------------------------------------------------
+    // RELOCACIÓN DE VECTOR TABLE (CRÍTICO PARA CORTEX-M0)
+    uint32_t *vectors_flash = (uint32_t *)0x08002000;
+    uint32_t *vectors_sram  = (uint32_t *)0x20000000;
+    for (int i = 0; i < 48; i++) {
+        vectors_sram[i] = vectors_flash[i];
+    }
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN; // Habilitar reloj SYSCFG
+    SYSCFG->CFGR1 |= 0x03; // SYSCFG_MemoryRemap_SRAM
+    // ---------------------------------------------------------
+    
+    // Purgar basura del bootloader
+    SysTick->CTRL = 0; 
+    SCB->ICSR = (1 << 25);
+    NVIC->ICPR[0] = 0xFFFFFFFF;
+    
+    // Habilitar interrupciones globales
+    __enable_irq();
+
     LCD_DrawLogo();
     LCD_UpdateFullScreen();
-    DelayMs(2000);
+    
+    // Espera no bloqueante usando SystemTick
+    uint32_t logo_start = g_SystemTick;
+    while((g_SystemTick - logo_start) < 2000) {
+        WDT_Refresh();
+    }
     SC5260_ClearArea(0, 0, 128, 64, 0);
 
     LCD_RunDiagnosticTest(); // Pruebas visuales geométricas
     LCD_ShowAlphabetTest();  // Prueba de tipografía en 3 escalas
     RadioConfig_Init();
-    g_radioInform.language = LANG_EN; // Force English language globally to remove all Chinese voice and menus
+    g_radioInform.language = LANG_EN; // Force English language globally
     UI_DisplayPowerOn();
-    BK4829_Init(); // Arrancar hardware de RF en 433.050 MHz
+    
+    // Inicializar Radio (Hardware RF)
+    BK4829_Init(); 
+    
+    // Inicializar tácticas y audio
+    Auth_Init();        // Arrancar el subsistema de Autenticación Táctica
+    AudioEngine_Init(); // Arrancar el Motor de Audio PWM de 16kHz
+    
     ChannelCheckActiveAll();
     BeepPowerOn();
     BatteryInitLevel();
 
     App_CheckPowerOnPassword();
 
-    //CheckHiddenParaSet(); 
-
     if(GetKeyCode() == KEYID_8)
     {
         DisplaySoftVersion();
     }
     
-    // Half-Life OTAP Slave activation (Hold Side Key 2 at boot and press A/B)
+    // Half-Life OTAP Slave activation
     if(GetKeyCode() == KEYID_SIDEKEY2)
     {
         BeepOut(BEEP_FASTSW);
         SC5260_ClearArea(0, 0, 128, 64, 0);
         UI_DrawText(15, 12, "OTAP ENLACE", SCALE_NORMAL);
         UI_DrawText(15, 30, "PULSE [A/B] CONFIRMAR", SCALE_NORMAL);
-        
-        U16 timeout = 0;
-        while(timeout < 200) // 2 seconds window
+        uint32_t otap_start = g_SystemTick;
+        while((g_SystemTick - otap_start) < 2000) // 2 seconds window
         {
-            DelayMs(10);
             if(GetKeyCode() == KEYID_AB)
             {
                 HL_SetMode(MODE_SLAVE_LISTEN);
                 BeepOut(BEEP_FMSW2);
                 break;
             }
-            timeout++;
+            WDT_Refresh();
         }
     }
 
@@ -93,7 +117,6 @@ int main(void)
     ResetTimeKeyLockAndPowerSave();
     ResetInputBuf();
 
-    //初始化写频模式
     ProgromInit();
     LCD_BackLightSetOn();
 
@@ -108,58 +131,35 @@ int main(void)
     }
     g_keyScan.keyEvent = KEYID_NONE;
     
-    // Hardware Watchdog activation: delay until all slow startup tasks complete
     WDT_Init();
     
     g_uiState = UI_STATE_TEST_BENCH;
     Light_LedTopToggle();
     SC5260_ClearArea(0, 0, 128, 64, 0);
-    // TEST BENCH inicialmente vacío o con indicación de que está listo
-    UI_DrawText(20, 24, "WAITING CMD...", SCALE_NORMAL);
+    UI_DrawText(20, 24, "SISTEMA ESTABLE", SCALE_NORMAL);
+    UI_DrawText(20, 40, "VRFR LISTO", SCALE_NORMAL);
     LCD_UpdateFullScreen();
     
-    // Pitido de validación LOCAL de bocina (sin transmitir RF)
-    // Tono de arranque: doble beep corto para indicar sistema OK
-    BK4829_PlayLocalBeep(1000, 150); // 1kHz, 150ms
-    DelayMs(80);
-    BK4829_PlayLocalBeep(1200, 150); // 1.2kHz, 150ms
-    
-    // Silenciar al terminar: cerrar squelch y apagar amplificador de bocina
-    // El radio queda en RX quieto (squelch cerrado hasta que llegue señal)
-    BK4829_SetAudioMute(true);
+    // Registrar Tareas
+    TimeManager_AddTask(VRFR_Tick, 10); // Revisar el timeout de RX/TX de VRFR cada 10ms
+    TimeManager_AddTask(Auth_Tick, 20); // Leer DTMF y gestionar Squelch táctico
+    TimeManager_AddTask(AudioEngine_Task, 1); // Gestor de secuencias de audio
     
     while(1)
     {
-        // Forzamos el polling aquí porque g_10msFlag no está disparando (SysTick apagado)
+        TimeManager_RunScheduler();
+        
         KEY_ScanTask();
         ExtraKeys_ScanTask();
-
-        // 10ms运行一次
-        if(g_10msFlag)
-        {
-            App_10msTask();
-        }
         
-        if(g_50msFlag)
-        {
-            App_50msTask();
-        }
-        
-        //100ms运行一次
-        if(g_100msFlag)
-        {
-            App_100msTask();
-        }
-
-        //500ms运行一次
-        if(g_500msFlag)
-        {
-            App_500msTask();
-        }
+        if(g_10msFlag) { App_10msTask(); }
+        if(g_50msFlag) { App_50msTask(); }
+        if(g_100msFlag) { App_100msTask(); }
+        if(g_500msFlag) { App_500msTask(); }
         
         AppRunTask();
-        
         WDT_Refresh();
     }
 }
+
 

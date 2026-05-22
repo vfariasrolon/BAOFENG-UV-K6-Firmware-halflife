@@ -101,6 +101,7 @@ SECTIONS
   .data :
   {
     . = ALIGN(4);
+    . = . + 0x100; /* RESERVE 256 BYTES FOR VECTOR TABLE RELOCATION */
     _sdata = .;        /* create a global symbol at data start */
     *(.data)           /* .data sections */
     *(.data*)          /* .data* sections */
