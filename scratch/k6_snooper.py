@@ -12,7 +12,7 @@ def run_snooper(port='/dev/ttyUSB0', baudrate=115200):
         print("==================================================")
         
         while True:
-            # Sincronización: buscar el byte 0xFE (escritura) o 0xFD (lectura)
+            # Sincronización o lectura de debug
             b = ser.read(1)
             if not b:
                 continue
@@ -29,6 +29,13 @@ def run_snooper(port='/dev/ttyUSB0', baudrate=115200):
                         print(f"[{time.strftime('%H:%M:%S')}] BK4829_ReadReg(0x{reg:02X}) -> 0x{val:04X};")
                     else:
                         print(f"[{time.strftime('%H:%M:%S')}] BK4829_WriteReg(0x{reg:02X}, 0x{val:04X});")
+            else:
+                # Si no es un comando SPI, imprimirlo como texto (debug telemetry)
+                try:
+                    sys.stdout.write(b.decode('ascii'))
+                    sys.stdout.flush()
+                except UnicodeDecodeError:
+                    pass
     except serial.SerialException as e:
         print(f"Error abriendo puerto serie: {e}")
     except KeyboardInterrupt:

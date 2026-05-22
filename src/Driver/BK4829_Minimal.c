@@ -252,6 +252,12 @@ void BK4829_ApplyProfile(uint8_t profile_id) {
         BK4829_WriteReg(0x1E, 0x4C58);
         BK4829_WriteReg(0x1F, 0xC65A);
         BK4829_WriteReg(0x3E, 0x94C6);
+
+        // --- Limpieza de generadores de tonos ---
+        // Es crítico que los divisores de frecuencia de TX estén en 0 para habilitar la decodificación RX
+        BK4829_WriteReg(0x71, 0x0000);
+        BK4829_WriteReg(0x72, 0x0000);
+
         BK4829_WriteReg(0x73, 0x4691);
         BK4829_WriteReg(0x77, 0x88EF);
         BK4829_WriteReg(0x28, 0x0B40);
@@ -303,15 +309,19 @@ void BK4829_ApplyProfile(uint8_t profile_id) {
         BK4829_WriteReg(0x78, 0x2040); // Umbral de Squelch
         
         // --- Configuración de Squelch Digital / Filtros ---
-        // Desactivamos CTCSS estricto (0x904B) y ponemos 0x0000 para abrir el audio a ruido analógico libre
-        // y evitar que el chip silencie por hardware.
-        BK4829_WriteReg(0x51, 0x0000); 
+        // Restauramos 0x51 a su valor original de fábrica (0x904B). 
+        // Ponerlo en 0 apagaba el decodificador de tonos (CTCSS y DTMF comparten ruta).
+        BK4829_WriteReg(0x51, 0x904B);
         BK4829_WriteReg(0x07, 0x0810);
         BK4829_WriteReg(0x07, 0x21CD);
         BK4829_WriteReg(0x52, 0x0292);
         
         BK4829_WriteReg(0x31, 0xFFFD); // AGC según captura de las 11:02:24
         BK4829_WriteReg(0x40, 0x34E0);
+        
+        // --- Habilitar Hardware DTMF Decoder (Faltante en Snooper pasivo) ---
+        BK4829_WriteReg(0x24, 0x8A7F); // 0x807F | (20 << 7) = DTMF Threshold + Enable
+        BK4829_WriteReg(0x3F, 0x0800); // FSK/DTMF Interrupt Mask Enable
         // La habilitación RX se hace al final de la función
     }
     else if (profile_id == 2) {
@@ -649,29 +659,60 @@ void BK4829_SendDTMFStringRF(const char* digits) {
         }
         digits++;
     }
+}
     
-    // Al terminar, deshabilitar transmisión y volver a RX
-    BK4829_TxEnable(false);
+static uint16_t reg_shadow[128];
+static bool shadow_initialized = false;
+
+void BK4829_PollRegisterDiff(void) {
+    if (!shadow_initialized) {
+        for (uint8_t i = 0; i < 128; i++) {
+            reg_shadow[i] = BK4829_ReadReg(i);
+        }
+        shadow_initialized = true;
+        return;
+    }
+    
+    for (uint8_t i = 0; i < 128; i++) {
+        uint16_t val = BK4829_ReadReg(i);
+        if (val != reg_shadow[i]) {
+            // Ignorar registros súper volátiles (ej. RSSI, ruido)
+            if (i == 0x67 || i == 0x69 || i == 0x0F) {
+                reg_shadow[i] = val;
+                continue;
+            }
+            
+            uartSendChar('\n');
+            uartSendChar('C');
+            uartSendChar('H');
+            uartSendChar('G');
+            uartSendChar(' ');
+            uartSendChar("0123456789ABCDEF"[(i >> 4) & 0xF]);
+            uartSendChar("0123456789ABCDEF"[i & 0xF]);
+            uartSendChar(':');
+            uartSendChar("0123456789ABCDEF"[(reg_shadow[i] >> 12) & 0xF]);
+            uartSendChar("0123456789ABCDEF"[(reg_shadow[i] >> 8) & 0xF]);
+            uartSendChar("0123456789ABCDEF"[(reg_shadow[i] >> 4) & 0xF]);
+            uartSendChar("0123456789ABCDEF"[reg_shadow[i] & 0xF]);
+            uartSendChar('-');
+            uartSendChar('>');
+            uartSendChar("0123456789ABCDEF"[(val >> 12) & 0xF]);
+            uartSendChar("0123456789ABCDEF"[(val >> 8) & 0xF]);
+            uartSendChar("0123456789ABCDEF"[(val >> 4) & 0xF]);
+            uartSendChar("0123456789ABCDEF"[val & 0xF]);
+            uartSendChar('\n');
+            
+            reg_shadow[i] = val;
+        }
+    }
 }
 
 char BK4829_ReadDTMFDigit(void) {
-    uint16_t reg0c = BK4829_ReadReg(0x0C);
-    if (reg0c & 0x0001) { // DTMF decodificado
-        // Limpiar interrupción
-        BK4829_WriteReg(0x02, 0x0000);
-        
-        uint16_t val = (BK4829_ReadReg(0x0B) >> 8) & 0x0F;
-        char c = '\0';
-        if (val < 10) c = '0' + val;
-        else if (val == 10) c = 'A';
-        else if (val == 11) c = 'B';
-        else if (val == 12) c = 'C';
-        else if (val == 13) c = 'D';
-        else if (val == 14) c = '*';
-        else if (val == 15) c = '#';
-        
-        return c;
-    }
+    BK4829_PollRegisterDiff();
+    
+    // Antiguo polling (desactivado para dejar que el Differ trabaje limpio)
+    // uint16_t reg0c = BK4829_ReadReg(0x0C);
+    // ...
     return '\0';
 }
 
