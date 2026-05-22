@@ -8,68 +8,55 @@ Esta guía documenta detalladamente el análisis técnico, los problemas inicial
 
 Los radios UV-K6 de revisiones recientes han reemplazado el transceptor de RF Beken BK4819 por el nuevo **BK4829**. Al cargarles un firmware diseñado únicamente para el chip viejo, se presentaban tres fallos críticos debido a diferencias estructurales en el mapa de registros:
 
-### A. Bloqueo y Congelamiento de la CPU (PTT / Linterna-Monitor)
-*   **Problema**: Al presionar PTT o intentar abrir el Squelch con la linterna (Monitor), el procesador se congelaba por completo y la radio se bloqueaba.
-*   **Causa**: El driver del BK4819 controlaba la máquina de estados escribiendo tramas de control complejas en el **registro `0x30`** (como `0xBFF1` para RX y `0xC1FE` para TX). En el **BK4829, el registro `0x30` es un registro simple de estado**: espera estrictamente `0x0002` para habilitar recepción (RX) y `0x0003` para transmisión (TX). Mandar los valores viejos bloqueaba internamente el secuenciador del chip, deteniendo el reloj y congelando la CPU de la radio.
+### A. Bloqueo y Congelamiento de la CPU
+*   **Problema**: Al inicializar, la radio se bloqueaba o se quedaba sorda con un "clic seco".
+*   **Causa**: El driver del BK4819 inicializaba registros (como `0x1C` a `0x1F`, `0x28` a `0x2F`, etc.) que en el **BK4829** corrompen el estado interno del chip. El BK4829 requiere una secuencia estricta de reinicio y configuración de los LDOs (`0x37` y `0x36`) antes de estabilizar el PLL.
 
-### B. "Sordera" Total de Recepción (Squelch Herméticamente Cerrado)
-*   **Problema**: La radio permanecía en silencio absoluto. Ninguna señal analógica abría el Squelch, y los beeps sonaban sumamente apagados (como clics secos digitales).
-*   **Causa**:
-    1.  **Conflicto de Registros (`0x48`)**: En el BK4819, el registro `0x48` controla la ganancia del DAC (volumen). Pero en el **BK4829, el registro `0x48` es el Registro Maestro del Squelch**. Cada vez que el firmware intentaba ajustar el volumen de audio de RX o Beeps escribiendo en `0x48`, sobrescribía el umbral de Squelch del BK4829 con valores muy altos, forzándolo a cerrarse permanentemente.
-    2.  **Calibración Desactivada**: La calibración dinámica del cristal de 26 MHz (`XTAL_ADJUST`) estaba forzada a un valor fijo genérico (`8`), ignorando la calibración real de fábrica guardada en la EEPROM de tu placa de circuito. Al no tener el offset exacto, el PLL se desfasaba de frecuencia, cerrando por completo el squelch angosto de FM.
+### B. "Sordera" Total de Recepción (Sin Audio Físico)
+*   **Problema**: La radio recibía señal (el LED encendía), pero permanecía en silencio absoluto.
+*   **Causa**: Descubrimos que la placa física requiere pines de la MCU para habilitar el audio que no estaban siendo activados:
+    1.  **Amplificador de Bocina**: El pin `GPIOB_Pin_2` debe estar en ALTO (`BSRR`) para dar energía al amplificador.
+    2.  **Bias de Audio RX**: El pin `GPIOA_Pin_3` debe estar en ALTO para abrir el paso analógico de recepción.
+    3.  **Conflicto del Squelch (`0x48`)**: En el BK4819 `0x48` controla el volumen, pero en el BK4829 es el Registro Maestro del Squelch.
 
-### C. Falla de Modulación en Transmisión (PTT sin Audio / Transmisión Falsa)
-*   **Problema**: Al transmitir (PTT), el indicador salía en pantalla y el nivel de señal subía al máximo, pero el receptor del otro lado no escuchaba nada de audio (portadora silenciosa).
+### C. Falla de Transmisión (Sin Potencia RF y Sin Modulación)
+*   **Problema**: Al transmitir (PTT), el radio indicaba TX pero no emitía RF real ni audio.
 *   **Causa**:
-    1.  **Falsa Transmisión Continua**: En `Rfic_GetRxTxState()`, el software evaluaba el estado leyendo el registro `0x30` y verificando `temp & 0x0002` para saber si estaba en TX. Sin embargo, en el BK4829 la recepción (RX) activa el valor `0x0002`. Por lo tanto, `temp & 0x0002` daba verdadero **siempre**, haciendo creer a la CPU que la radio estaba transmitiendo todo el tiempo, desconfigurando los ciclos de audio.
-    2.  **Corrupción del Estado del Micrófono**: En `Rfic_MicIn_Enable()` y `Rfic_MicIn_Disable()`, el código original modificaba el registro `0x30` aplicando una máscara de bits `| 0x0004` para activar el micrófono. En el BK4829, alterar este bit modificaba el estado de `0x0003` (TX) a `0x0007`, corrompiendo la modulación y cancelando la entrada del micrófono.
+    1.  **Amplificador de Potencia (PA)**: El firmware viejo encendía el PA a través del registro `0x3B`. En el BK4829, el PA se controla escribiendo en el **registro `0x36`** (ej. `0x01FF` para encender, `0x007F` para apagar).
+    2.  **Estados TX/RX (`0x30`)**: Estábamos usando estados simples (`0x0002` y `0x0003`). El código fuente nativo del BK4829 requiere tramas complejas: `0xBFF1` para RX y `0xC1FE` para TX.
+    3.  **Tonos DTMF**: Mandar frecuencias en Hz crudos (`941`) causaba un "clic". El BK4829 requiere convertir los Hz mediante una fórmula matemática (`Reg = Hz * 10.324`) y usar el modo oculto **TXTONE** (`0xC3FA`) para que el audio pase al aire.
 
 ---
 
-## 🛠️ 2. Soluciones Técnicas Implementadas
+## 🛠️ 2. Soluciones Técnicas Implementadas (BK4829_Minimal.c)
 
-Hemos desarrollado una capa de compatibilidad inteligente en `src/Driver/DevFD6818.c` y `src/Driver/RadioDataStorage.c` para que el firmware identifique automáticamente el chip y se comporte según corresponda:
+Hemos desarrollado un driver minimalista y 100% estable (`BK4829_Minimal.c`) que soluciona de raíz todos los bloqueos físicos y lógicos de RF:
 
-### A. Detección Inteligente del Silicio
-En `Rfic_Init()`, leemos el ID de hardware del chip en el bus SPI:
-```c
-U16 chipID = Rfic_ReadWord(0);
-if (chipID == 0x4829) {
-    g_isBK4829 = 1;
-}
-```
-Si se detecta el chip BK4829, se inicializan únicamente sus registros maestros nativos:
-*   `0x00` -> `0x0000` (Reset por software)
-*   `0x01` -> `0x3FF0` (Referencia de reloj estable)
-*   `0x48` -> `0x2340` (Squelch inicial por defecto)
-*   `0x70` -> `0x00E0` (Ganancia LNA e Intermedia)
-*   `0x74` -> `0x3B2D` (Filtros pasa-banda de audio analógico)
-*   `0x30` -> `0x0002` (Modo RX listo)
+### A. Habilitación de Hardware Físico (Pines MCU)
+Añadimos la configuración de pines GPIO al inicio para revivir el hardware analógico de la placa:
+*   `GPIOB_Pin_2 = ON`: Enciende el transistor del amplificador de la bocina. Sin esto, el equipo estaba completamente mudo.
+*   `GPIOA_Pin_3 = ON`: Habilita el *bias* de audio RX.
+*   **Gestión del Squelch**: `BK4829_SetAudioMute(true)` escribe `0x2340` en `0x48` (cerrar squelch) y **apaga el pin B2**, asegurando cero ruido residual. Al desmutear, escribe `0x0000` y enciende la bocina.
 
-Y se omiten las escrituras a registros de BK4819 incompatibles (como las tablas de ganancia de AGC y DTMF) para evitar colgar el transceptor.
+### B. Inicialización Limpia de RF
+Se omiten las escrituras destructivas y se configura estrictamente la secuencia de encendido LDO/Band Gap necesaria:
+1. Reset por software (`0x00 = 0x0000`).
+2. Habilitación de LDO y Reloj (`0x37 = 0x9F1F`, `0x36 = 0x0022`).
+3. Valores de AGC, Audio y PLL recuperados del código fuente nativo de fábrica.
+4. Estado en recepción inactivo (`0x30 = 0xBFF1`).
 
-### B. Control Seguro de Estados (`0x30`) y Bypass de Micrófono
-*   **En `Rfic_RxTxOnOffSetup`**: Si `g_isBK4829` es verdadero, se traduce la orden a tramas nativas de control:
-    *   `RFIC_RXON` y `RFIC_TONE` -> Escribe `0x0002` en `0x30`.
-    *   `RFIC_TXON` y `RFIC_TXTONE` -> Escribe `0x0003` en `0x30`.
-    *   `RFIC_IDLE` -> Escribe `0x0000` en `0x30`.
-*   **En Mic In**: En `Rfic_MicIn_Enable()` y `Rfic_MicIn_Disable()`, si `g_isBK4829` es verdadero, salimos inmediatamente sin tocar `0x30` para no corromper la modulación, ya que el estado nativo de transmisión `0x0003` habilita automáticamente la ruta de entrada de micrófono analógico en este silicio.
+### C. Control de Transmisión Real (El Secreto de 0x36)
+La transición a TX (`BK4829_TxEnable`) ahora aplica los tres pasos obligatorios:
+1.  **Conmutación RF Externa**: `GPIOA_Pin_13` y `Pin_14` en LOW para activar la ruta UHF de TX en los switches de placa.
+2.  **Conmutación RF Interna**: Se re-configuran los GPIOs internos del BK4829 vía registro `0x33` (`RF_GPIO3=LOW`, `RF_GPIO2=HIGH`).
+3.  **Encendido del PA (Power Amplifier)**: Se escribe `0x01FF` en el **registro `0x36`**. (El apagado escribe `0x007F`).
+4.  **Estado TX**: Se escribe `0xC1FE` en el registro `0x30`.
 
-### C. Mapeo Dinámico del Squelch (`0x48`)
-*   En `Rfic_SQLSetup()`, si se detecta el BK4829:
-    *   Si se activa el modo Monitor (linterna) o Squelch `0`, se escribe `0x0000` en `0x48` para abrir por completo la recepción y reproducir estática analógica pura (`shhhhhh`).
-    *   Para los niveles del 1 al 9, implementamos una tabla de atenuación de ruido digital lineal altamente optimizada:
-        `{0x0000, 0x1540, 0x1B40, 0x2040, 0x2340, 0x2640, 0x2940, 0x2C40, 0x3040, 0x3440}`
-*   En `Rfic_SetAfout()`, agregamos un guard para que si es el BK4829, se evite re-escribir ganancias del DAC en `0x48`, eliminando la causa raíz de la sordera por volumen.
-
-### D. Discriminación de Estado RX/TX Correcta
-En `Rfic_GetRxTxState()`, corregimos la lectura del registro `0x30` para el BK4829 evaluando el bit 0 (que indica modo TX cuando es `1`):
-```c
-if (g_isBK4829) {
-    return (temp & 0x0001) ? 1 : 0;
-}
-```
-Esto soluciona la retroalimentación falsa de transmisión y restaura los ciclos normales de demodulación analógica de audio.
+### D. Modulación y Frecuencias DTMF Matemáticas
+Para emitir pitidos y tonos DTMF funcionales:
+*   **Fórmula de Conversión**: El BK4829 usa un formato de registro. Para pasar de Hz crudos a Registro, usamos la macro: `#define BK4829_HZ_TO_REG(hz) ((hz) * 1032444UL / 100000UL)`. 
+*   **Modo TONE Local**: Para el boot beep, usamos `0x30 = 0x0302`, que reproduce el tono en la bocina sin transmitir portadora RF.
+*   **Modo TXTONE (Aire)**: Para enviar DTMF por radio, se usa `0x30 = 0xC3FA`, se habilita el threshold en `0x24 = 0x87FF` y la ganancia en `0x70 = 0xE0E0`. Al terminar, obligatoriamente hay que regresar al estado RX (`0xBFF1`).
 
 ---
 
