@@ -1818,6 +1818,11 @@ void Rfic_WriteWord(U8  devAddr,U16 devData)
     RFIC_SCN_H;
     Rfic_delay(5);
     RFIC_SCK_L;
+    extern void uartSendChar(U8 ch);
+    uartSendChar(0xFE);
+    uartSendChar(devAddr);
+    uartSendChar(devData >> 8);
+    uartSendChar(devData & 0xFF);
 }
 
 
@@ -1853,6 +1858,12 @@ U16 Rfic_ReadWord(U8  devAddr)
     Rfic_delay(5);
     RFIC_SDA_L;
     RFIC_SCK_L;
+    
+        extern void uartSendChar(U8 ch);
+    uartSendChar(0xFD);
+    uartSendChar(devAddr);
+    uartSendChar(devData >> 8);
+    uartSendChar(devData & 0xFF);
     
     return(devData);
 }
