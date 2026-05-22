@@ -60,7 +60,11 @@ static void Rfic_ByteWrite(uint8_t ByteData) {
 }
 
 void BK4829_WriteReg(uint8_t devAddr, uint16_t devData) {
-    RFIC_SCN_L;
+        uartSendChar(0xFE);
+    uartSendChar(devAddr);
+    uartSendChar(devData >> 8);
+    uartSendChar(devData & 0xFF);
+RFIC_SCN_L;
     Rfic_delay(5);
     Rfic_ByteWrite(devAddr);
     Rfic_ByteWrite(devData >> 8);
@@ -124,6 +128,10 @@ retry:
         }
     }
     
+        uartSendChar(0xFD);
+    uartSendChar(devAddr);
+    uartSendChar(devData >> 8);
+    uartSendChar(devData & 0xFF);
     return devData;
 }
 
@@ -164,7 +172,7 @@ void BK4829_Init(void) {
     BK4829_WriteReg(0x00, 0x0000);
     DelayMs(10);
     
-    BK4829_ApplyProfile(0);
+    BK4829_ApplyProfile(1);
 }
 
 void BK4829_ApplyProfile(uint8_t profile_id) {
@@ -221,8 +229,8 @@ void BK4829_ApplyProfile(uint8_t profile_id) {
         BK4829_WriteReg(0x48, 0x2340);
         
         BK4829_WriteReg(0x24, 0x807F | (20 << 7));
-        BK4829_WriteReg(0x38, (uint16_t)g_test_freq);
-        BK4829_WriteReg(0x39, (uint16_t)(g_test_freq >> 16));
+        BK4829_WriteReg(0x38, 0xC83D);
+        BK4829_WriteReg(0x39, 0x0294);
         BK4829_WriteReg(0x43, 0x3028);
         BK4829_WriteReg(0x47, 0x6040); // AGC Table
     } 
@@ -282,15 +290,15 @@ void BK4829_ApplyProfile(uint8_t profile_id) {
         // --- AF DAC y Control de Audio ---
         // En la captura de arranque, 0x48 era 0x2340 (MUTE). Cuando se abre el squelch,
         // el firmware original escribe 0x47=0x6042 y 0x48=0x82DF (AF_DAC_EN = 1).
-        BK4829_WriteReg(0x47, 0x6042);
+        BK4829_WriteReg(0x47, 0x6142);
         BK4829_WriteReg(0x48, 0xB3FF); // B3FF = DAC Enable (Bit 15=1) + Max Vol
         
         BK4829_WriteReg(0x30, 0xBFF1);
         
         // --- Tuning a 433.050 MHz (Extracción 10:40:40 y 11:02:24) ---
         BK4829_WriteReg(0x30, 0x0000); // IDLE
-        BK4829_WriteReg(0x38, (uint16_t)g_test_freq); // 0xC83D
-        BK4829_WriteReg(0x39, (uint16_t)(g_test_freq >> 16)); // 0x0294
+        BK4829_WriteReg(0x38, 0xC83D); // 0xC83D
+        BK4829_WriteReg(0x39, 0x0294); // 0x0294
         BK4829_WriteReg(0x43, 0x3028);
         BK4829_WriteReg(0x78, 0x2040); // Umbral de Squelch
         
@@ -370,8 +378,8 @@ void BK4829_ApplyProfile(uint8_t profile_id) {
         BK4829_WriteReg(0x48, 0xB3FF); // Max Vol
         
         // Rfic_BandInitial
-        BK4829_WriteReg(0x38, (uint16_t)g_test_freq);
-        BK4829_WriteReg(0x39, (uint16_t)(g_test_freq >> 16));
+        BK4829_WriteReg(0x38, 0xC83D);
+        BK4829_WriteReg(0x39, 0x0294);
         BK4829_WriteReg(0x43, 0x3028); // BAND_WIDE
         
         BK4829_WriteReg(0x1F, 0x5454);
@@ -718,4 +726,50 @@ void BK4829_Test_DTMF_RF(void) {
     // 5. Apagar transmisión (PA) y volver a RX
     BK4829_TxEnable(false);
     BK4829_TestBench_UpdateStatus(false);
+}
+
+// ==========================================
+// USART SNOOPER
+// ==========================================
+#include "KD32f328_usart.h"
+#include "KD32f328_rcc.h"
+
+void Usart_Init(void) {
+    USART_InitTypeDef USART_InitStructure;
+    GPIO_InitTypeDef GPIO_InitStructure;
+
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
+    RCC_USARTCLKConfig(RCC_USART1CLK_PCLK);
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
+
+    GPIO_PinAFConfig(GPIOA, GPIO_PinSource9, GPIO_AF_1);
+    GPIO_PinAFConfig(GPIOA, GPIO_PinSource10, GPIO_AF_1);
+    
+    GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_9;
+    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AF;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+    GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_NOPULL;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    
+    GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_10;
+    GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_UP;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    
+    USART_InitStructure.USART_BaudRate = 115200;
+    USART_InitStructure.USART_WordLength = USART_WordLength_8b;
+    USART_InitStructure.USART_StopBits = USART_StopBits_1;
+    USART_InitStructure.USART_Parity = USART_Parity_No;
+    USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+    USART_InitStructure.USART_Mode = USART_Mode_Tx;
+
+    USART_Init(USART1, &USART_InitStructure);
+    USART_Cmd(USART1, ENABLE);
+}
+
+void uartSendChar(unsigned char ch) {
+    USART1->TDR = (ch & (uint16_t)0x01FF);
+    uint32_t timeout = 100000;
+    while (((USART1->ISR & USART_FLAG_TXE) == (uint16_t)RESET) && --timeout); 
 }

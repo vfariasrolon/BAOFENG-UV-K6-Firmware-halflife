@@ -743,6 +743,8 @@ void  Rfic_Init(void)
         Rfic_WriteWord(0x14, 0x0210);
         Rfic_WriteWord(0x49, 0x2AB2);
         Rfic_WriteWord(0x7B, 0x73DC);
+        Rfic_WriteWord(0x31, 0xFFFD);
+        Rfic_WriteWord(0x47, 0x6142);
         
         // Audio, PLL, VCO y Modulación (Bypass y Offset)
         Rfic_WriteWord(0x40, 0x3516);
@@ -1810,7 +1812,11 @@ void Rfic_ByteWrite(U8  ByteData)
 
 void Rfic_WriteWord(U8  devAddr,U16 devData)
 {
-    RFIC_SCN_L;
+        uartSendChar(0xFE);
+    uartSendChar(devAddr);
+    uartSendChar(devData >> 8);
+    uartSendChar(devData & 0xFF);
+RFIC_SCN_L;
     Rfic_delay(5);
     Rfic_ByteWrite(devAddr);
     Rfic_ByteWrite(devData >> 8);

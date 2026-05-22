@@ -1,0 +1,50 @@
+ BAOFENG-UV-K6-Firmware-halflife git:(minifirm) ✗ ./venv/bin/python3 scratch/k6_snooper.py 
+
+==================================================
+📡 SNOOPER SPI BK4829 INICIADO
+Escuchando tráfico en /dev/ttyUSB0 a 115200 baudios...
+==================================================
+[13:01:32] BK4829_WriteReg(0x00, 0x0000);
+[13:01:33] BK4829_WriteReg(0x00, 0x0000);
+[13:01:33] BK4829_WriteReg(0x37, 0x9F1F);
+[13:01:33] BK4829_WriteReg(0x36, 0x0022);
+[13:01:33] BK4829_WriteReg(0x10, 0x0318);
+[13:01:33] BK4829_WriteReg(0x11, 0x033A);
+[13:01:33] BK4829_WriteReg(0x12, 0x03DB);
+[13:01:33] BK4829_WriteReg(0x13, 0x03DF);
+[13:01:33] BK4829_WriteReg(0x14, 0x0210);
+[13:01:33] BK4829_WriteReg(0x49, 0x2AB2);
+[13:01:33] BK4829_WriteReg(0x7B, 0x73DC);
+[13:01:33] BK4829_WriteReg(0x40, 0x3516);
+[13:01:33] BK4829_WriteReg(0x1C, 0x07C0);
+[13:01:33] BK4829_WriteReg(0x1D, 0xE555);
+[13:01:33] BK4829_WriteReg(0x1E, 0x4C58);
+[13:01:33] BK4829_WriteReg(0x1F, 0x5454);
+[13:01:33] BK4829_WriteReg(0x3E, 0xA037);
+[13:01:33] BK4829_WriteReg(0x4F, 0x3732);
+[13:01:33] BK4829_WriteReg(0x26, 0x13A0);
+[13:01:33] BK4829_WriteReg(0x73, 0x4691);
+[13:01:33] BK4829_WriteReg(0x77, 0x88EF);
+[13:01:33] BK4829_WriteReg(0x28, 0x0B40);
+[13:01:33] BK4829_WriteReg(0x29, 0xAA00);
+[13:01:33] BK4829_WriteReg(0x2A, 0x6600);
+[13:01:33] BK4829_WriteReg(0x2C, 0x1822);
+[13:01:33] BK4829_WriteReg(0x2F, 0x9890);
+[13:01:33] BK4829_WriteReg(0x53, 0x2028);
+[13:01:33] BK4829_WriteReg(0x7E, 0x303E);
+[13:01:33] BK4829_WriteReg(0x46, 0x600A);
+[13:01:33] BK4829_WriteReg(0x4A, 0x5430);
+[13:01:33] BK4829_WriteReg(0x07, 0x61CE);
+[13:01:33] BK4829_WriteReg(0x30, 0x0119);
+[13:01:33] BK4829_WriteReg(0x31, 0x8206);
+[13:01:33] BK4829_WriteReg(0x32, 0x0060);
+[13:01:33] BK4829_WriteReg(0x3B, 0x0A0F);
+[13:01:33] BK4829_WriteReg(0x51, 0x0000);
+[13:01:33] BK4829_WriteReg(0x52, 0x0000);
+[13:01:33] BK4829_WriteReg(0x01, 0x3FF0);
+[13:01:33] BK4829_WriteReg(0x19, 0x1041);
+[13:01:33] BK4829_WriteReg(0x7D, 0xE952);
+[13:01:33] BK4829_WriteReg(0x48, 0x2340);
+[13:01:33] BK4829_WriteReg(0x24, 0x8A7F);
+[13:01:33] BK4829_WriteReg(0x38, 0x0000);
+[13:01:33] BK4829_WriteReg(0x39, 0x0000);

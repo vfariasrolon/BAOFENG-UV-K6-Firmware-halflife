@@ -1,0 +1,50 @@
+==================================================
+📡 SNOOPER SPI BK4829 INICIADO
+Escuchando tráfico en /dev/ttyUSB0 a 115200 baudios...
+==================================================
+
+Snooper detenido por el usuario.
+==================================================
+📡 SNOOPER SPI BK4829 INICIADO
+Escuchando tráfico en /dev/ttyUSB0 a 115200 baudios...
+==================================================
+
+Snooper detenido por el usuario.
+==================================================
+📡 SNOOPER SPI BK4829 INICIADO
+Escuchando tráfico en /dev/ttyUSB0 a 115200 baudios...
+==================================================
+[12:21:13] BK4829_WriteReg(0x00, 0x0000);
+[12:21:13] BK4829_WriteReg(0x37, 0x9F1F);
+[12:21:13] BK4829_WriteReg(0x36, 0x0022);
+[12:21:13] BK4829_WriteReg(0x10, 0x0318);
+[12:21:13] BK4829_WriteReg(0x11, 0x033A);
+[12:21:13] BK4829_WriteReg(0x12, 0x03DB);
+[12:21:13] BK4829_WriteReg(0x13, 0x03DF);
+[12:21:13] BK4829_WriteReg(0x14, 0x0210);
+[12:21:13] BK4829_WriteReg(0x49, 0x2AB2);
+[12:21:13] BK4829_WriteReg(0x7B, 0x73DC);
+[12:21:13] BK4829_WriteReg(0x31, 0xFFFD);
+[12:21:13] BK4829_WriteReg(0x47, 0x6142);
+[12:21:13] BK4829_WriteReg(0x40, 0x3516);
+[12:21:13] BK4829_WriteReg(0x1C, 0x07C0);
+[12:21:13] BK4829_WriteReg(0x1D, 0xE555);
+[12:21:13] BK4829_WriteReg(0x1E, 0x4C58);
+[12:21:13] BK4829_WriteReg(0x1F, 0xC65A);
+[12:21:13] BK4829_WriteReg(0x3E, 0x94C6);
+[12:21:13] BK4829_WriteReg(0x73, 0x4691);
+[12:21:13] BK4829_WriteReg(0x77, 0x88EF);
+[12:21:13] BK4829_WriteReg(0x28, 0x0B40);
+[12:21:13] BK4829_WriteReg(0x29, 0xAA00);
+[12:21:13] BK4829_WriteReg(0x2A, 0x6600);
+[12:21:13] BK4829_WriteReg(0x2C, 0x1822);
+[12:21:13] BK4829_WriteReg(0x2F, 0x9890);
+[12:21:13] BK4829_WriteReg(0x53, 0x2028);
+[12:21:13] BK4829_WriteReg(0x7E, 0x303E);
+[12:21:13] BK4829_WriteReg(0x46, 0x600A);
+[12:21:13] BK4829_WriteReg(0x4A, 0x5430);
+[12:21:13] BK4829_WriteReg(0x07, 0x61CE);
+[12:21:13] BK4829_WriteReg(0x09, 0x006F);
+[12:21:13] BK4829_WriteReg(0x09, 0x106B);
+[12:21:13] BK4829_WriteReg(0x09, 0x2067);
+[12:21:13] BK4829_WriteReg(0x09, 0x3062);

@@ -29,6 +29,10 @@ int main(void)
 {   
     WDT_Init(); // Arrancar WDT temprano
 
+    extern void Usart_Init(void);
+    SystemCoreClockUpdate();
+    Usart_Init();
+
     Board_Init();    
     LED_Init(); // Inicializamos el LED para el Blink Test
     Keyboard_Init(); // Inicializamos el Teclado para recibir entradas
@@ -57,6 +61,10 @@ int main(void)
     
     // Habilitar interrupciones globales
     __enable_irq();
+
+    SystemCoreClockUpdate();
+    extern void Usart_Init(void);
+    Usart_Init();
 
     LCD_DrawLogo();
     LCD_UpdateFullScreen();
