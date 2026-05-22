@@ -195,8 +195,7 @@ if __name__ == '__main__':
     
     # Find custom binaries starting with bfk6-
     custom_files = [f for f in os.listdir(bin_dir) if f.startswith('bfk6-') and f.endswith('.bin')]
-    custom_files.sort(reverse=True)
-    custom_path = os.path.join(bin_dir, custom_files[0]) if custom_files else None
+    custom_files.sort()
     
     options = {}
     idx = 1
@@ -207,11 +206,11 @@ if __name__ == '__main__':
     else:
         print("⚠️ Advertencia: No se encontró 'out/original_factory.bin'")
         
-    if custom_path:
-        # Get filename of custom binary
-        custom_name = os.path.basename(custom_path)
-        options[idx] = (f"Firmware Custom Half-Life (Reciente: {custom_name})", custom_path)
-        idx += 1
+    if custom_files:
+        for f in custom_files:
+            cpath = os.path.join(bin_dir, f)
+            options[idx] = (f"Firmware Custom Half-Life: {f}", cpath)
+            idx += 1
     else:
         print("⚠️ Advertencia: No se encontró ningún firmware custom 'bfk6-*.bin' en 'out/'")
         

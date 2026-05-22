@@ -13,18 +13,16 @@ def postBuild(source, target, env):
     print("Project directory: " + projectDir)
     print("Out directory: " + outDir)
     
-    # Get current date and time and format to 202311140442 (YYYYDDMMHHMM)
-    now = datetime.datetime.now()
-    timeStr = now.strftime("%Y%m%d%H%M")
+    env_name = env.get("PIOENV", "default")
     
-    outFile = os.path.join(outDir,"bfk6-"+timeStr+ ".bin")
-
     # create out directory if it doesn't exist
     if not os.path.exists(outDir):
         os.makedirs(outDir)
 
-    # Remove all files in out directory
-    files = glob.glob(outDir + "/bfk6-*.bin")
+    outFile = os.path.join(outDir, f"bfk6-{env_name}.bin")
+
+    # Remove all old files with the same env name
+    files = glob.glob(outDir + f"/bfk6-{env_name}*.bin")
     for f in files:
         os.remove(f)
 

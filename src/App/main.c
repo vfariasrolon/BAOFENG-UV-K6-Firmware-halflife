@@ -74,12 +74,8 @@ int main(void)
     g_radioInform.language = LANG_EN; // Force English language globally
     UI_DisplayPowerOn();
     
-    // Inicializar Radio (Hardware RF)
-    BK4829_Init(); 
-    
     // Inicializar tácticas y audio
-    Auth_Init();        // Arrancar el subsistema de Autenticación Táctica
-    AudioEngine_Init(); // Arrancar el Motor de Audio PWM de 16kHz
+    AudioEngine_Init(); 
     
     ChannelCheckActiveAll();
     BeepPowerOn();
@@ -133,21 +129,52 @@ int main(void)
     
     WDT_Init();
     
-    g_uiState = UI_STATE_MAIN;
-    Light_LedTopToggle();
+    // ========================================================
+    // RE-INICIALIZACIÓN FORZADA (Evita sobrescritura de OEM)
+    // ========================================================
+    BK4829_Init(); 
+    Auth_Init();
+    // ========================================================
+    
+    // Forzar UI a Test Bench
+    g_uiState = UI_STATE_TEST_BENCH;
+    SC5260_ClearArea(0, 0, 128, 64, 0); // Limpiar OEM UI
+    VRFR_RenderDiagnostics(); // Renderizar por primera vez
     LCD_UpdateFullScreen();
     
     // Registrar Tareas
-    TimeManager_AddTask(VRFR_Tick, 10); // Revisar el timeout de RX/TX de VRFR cada 10ms
-    TimeManager_AddTask(Auth_Tick, 20); // Leer DTMF y gestionar Squelch táctico
+    TimeManager_AddTask(VRFR_Tick, 10); // Lógica RX/TX DTMF
     TimeManager_AddTask(AudioEngine_Task, 1); // Gestor de secuencias de audio
     
+#ifdef RADIO_A
+    // Retardo inicial para dar tiempo a encender el Radio B
+    uint32_t wait_start = g_SystemTick;
+    while((g_SystemTick - wait_start) < 2000) { WDT_Refresh(); }
+    
+    // Radio A genera el Handshake
+    char randStr[16];
+    uint32_t seed = g_SystemTick; // Usar el tiempo como seed
+    snprintf(randStr, sizeof(randStr), "%lu", (unsigned long)VRFR_Xorshift32(&seed));
+    VRFR_SendPayload(VRFR_CMD_HANDSHAKE, randStr);
+#endif
+
     while(1)
     {
         TimeManager_RunScheduler();
         
         KEY_ScanTask();
         ExtraKeys_ScanTask();
+        
+        // Mapeo Rápido de Teclas Locales hacia VRFR
+        if (g_keyScan.keyEvent != KEYID_NONE) {
+            uint8_t code = g_keyScan.keyEvent;
+            g_keyScan.keyEvent = KEYID_NONE; // Consumir evento
+            
+            // KEYID_1 = Luz OFF, KEYID_2 = Luz ON, KEYID_3 = CNT++
+            if (code == KEYID_1) VRFR_ProcessLocalKey(1);
+            else if (code == KEYID_2) VRFR_ProcessLocalKey(2);
+            else if (code == KEYID_3) VRFR_ProcessLocalKey(3);
+        }
         
         if(g_10msFlag) { App_10msTask(); }
         if(g_50msFlag) { App_50msTask(); }

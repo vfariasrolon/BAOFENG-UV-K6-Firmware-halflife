@@ -93,87 +93,8 @@ void App_EventManager(KeyID_Enum key)
             break;
 
         case UI_STATE_TEST_BENCH:
-        {
-            static bool s_first_run = true;
-            if (s_first_run) {
-                SC5260_ClearArea(0, 0, 128, 64, 0);
-                LCD_UpdateFullScreen();
-                s_first_run = false;
-            }
-            
-            if (key == KEYID_MENU) {
-                UI_ClearLine(0);
-                UI_DrawText(0, 0, "[TX] PING", SCALE_TINY);
-                UI_ClearLine(8);
-                UI_DrawText(0, 8, "DTMF: *10000C   ", SCALE_TINY);
-                LCD_UpdatePages(0, 1); // Actualizar solo páginas 0 y 1
-                
-                VRFR_RenderDiagnostics(); // Pintar logs (que a su vez actualizan su zona)
-                
-                VRFR_Test_Send_Ping(0);
-            } else if (key == KEYID_UP) {
-                UI_ClearLine(0);
-                UI_DrawText(0, 0, "[TX] DTMF RF ", SCALE_TINY);
-                UI_ClearLine(8);
-                UI_DrawText(0, 8, "TESTING...      ", SCALE_TINY);
-                LCD_UpdatePages(0, 1);
-                
-                VRFR_RenderDiagnostics();
-                
-                // Prueba de 3 segundos de tono DTMF real por aire
-                BK4829_Test_DTMF_RF();
-                
-                UI_DrawText(0, 8, "DONE.           ", SCALE_TINY);
-                LCD_UpdatePages(0, 1);
-            } else if (key == KEYID_DOWN) {
-                // Diagnóstico SPI de Bajo Nivel
-                uint16_t chip_id = BK4829_ReadReg(0x00);
-                char log_buf[16];
-                snprintf(log_buf, sizeof(log_buf), "ID: 0x%04X", chip_id);
-                VRFR_LogEvent(log_buf);
-
-                UI_ClearLine(0);
-                UI_DrawText(0, 0, "[TX] CARRIER", SCALE_TINY);
-                UI_ClearLine(8);
-                UI_DrawText(0, 8, "5 SECONDS...    ", SCALE_TINY);
-                LCD_UpdatePages(0, 1);
-                
-                VRFR_RenderDiagnostics();
-                
-                // Disparar portadora limpia para prueba de RF
-                BK4829_Test_Carrier5s();
-                
-                UI_DrawText(0, 8, "DONE.           ", SCALE_TINY);
-                LCD_UpdatePages(0, 1);
-            } else if (key == KEYID_PTT) {
-                // Pre-calcular la semilla para mostrarla
-                uint32_t simulated_seed = g_aniTable.current_seed;
-                // El motor XORShift avanza el estado, por lo que pre-calculamos para mostrar
-                uint32_t next_seed = simulated_seed;
-                next_seed ^= next_seed << 13;
-                next_seed ^= next_seed >> 17;
-                next_seed ^= next_seed << 5;
-                
-                char buf[30];
-                UI_ClearLine(0);
-                UI_DrawText(0, 0, "[TX] RND SEED", SCALE_TINY);
-                UI_ClearLine(8);
-                sprintf(buf, "DTMF: *4%05X   ", (unsigned int)(next_seed & 0xFFFFF));
-                UI_DrawText(0, 8, buf, SCALE_TINY);
-                LCD_UpdatePages(0, 1);
-                
-                VRFR_RenderDiagnostics();
-                
-                VRFR_Test_Send_Random(); // Envía y aplica la nueva semilla
-            } else {
-                UI_ClearLine(0);
-                UI_DrawText(0, 0, Debug_GetKeyName(key), SCALE_TINY);
-                LCD_UpdatePages(0, 1);
-                
-                VRFR_RenderDiagnostics();
-            }
-        } // Fin del bloque UI_STATE_TEST_BENCH
-        break;
+            // Todo el renderizado y manejo de teclas del Test Bench VRFR ahora se realiza en main.c y vrfr_proto.c
+            break;
 
         default:
             g_uiState = UI_STATE_DEBUG_MAPPING;

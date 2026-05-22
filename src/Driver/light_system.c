@@ -54,3 +54,14 @@ void Light_LedTopToggle(void)
         g_ledTopState = 1;
     }
 }
+
+void LightSystem_Set(uint8_t on)
+{
+    if (on) {
+        GPIOF->BSRR = GPIO_Pin_7; // LCD Backlight ON
+        g_backlightState = 1;
+    } else {
+        GPIOF->BRR = GPIO_Pin_7; // LCD Backlight OFF
+        g_backlightState = 0;
+    }
+}

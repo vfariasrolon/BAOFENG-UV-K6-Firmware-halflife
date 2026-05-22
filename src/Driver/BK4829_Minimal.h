@@ -5,6 +5,9 @@
 
 // Inicialización de energía y frecuencia (433.050 MHz)
 void BK4829_Init(void);
+void BK4829_ResetBus(void);
+uint16_t BK4829_ReadReg(uint8_t devAddr);
+void BK4829_WriteReg(uint8_t devAddr, uint16_t devData);
 
 // Controles de Transmisión y Recepción
 void BK4829_TxEnable(bool enable);
@@ -13,9 +16,13 @@ void BK4829_RxEnable(bool enable);
 // Controles de Audio y DTMF
 void BK4829_SetAudioMute(bool mute);
 void BK4829_PlayLocalBeep(uint16_t freq_hz, uint16_t duration_ms);
+void BK4829_PlayLocalDTMF(uint16_t tone1_hz, uint16_t tone2_hz, uint16_t duration_ms);
+void BK4829_PlayDTMFString(const char* digits);
 void BK4829_SendDTMF(uint16_t tone1_hz, uint16_t tone2_hz);
-void BK4829_StopDTMF(void);
-
+void BK4829_StopDTMF(bool returnToRx);
+void BK4829_SendDTMFStringRF(const char* digits);
+char BK4829_ReadDTMFDigit(void);
+void BK4829_ForceOpenAudio(void);
 // Lectura de Registros (Diagnóstico)
 uint16_t BK4829_ReadReg(uint8_t devAddr);
 

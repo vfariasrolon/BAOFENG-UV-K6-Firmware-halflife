@@ -50,6 +50,11 @@ static const ToneSequence_t SEQ_AUTH_SUCCESS[] = {
     {0, 0}
 };
 
+static const ToneSequence_t SEQ_ACK[] = {
+    {2500, 100}, // Beep corto 100ms
+    {0, 0}
+};
+
 void AudioEngine_Init(void) {
     // 1. Relojes
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA | RCC_AHBPeriph_GPIOB, ENABLE);
@@ -142,6 +147,10 @@ void AudioEngine_PlayAuthBeep(void) {
     PlaySequence(SEQ_AUTH_SUCCESS);
 }
 
+void AudioEngine_PlayAck(void) {
+    PlaySequence(SEQ_ACK);
+}
+
 // Interrupción que corre a 16 kHz exactos
 void TIM1_BRK_UP_TRG_COM_IRQHandler(void) {
     if (TIM_GetITStatus(TIM1, TIM_IT_Update) != RESET) {
@@ -179,7 +188,10 @@ void AudioEngine_Task(void) {
                 SetTone(0);
                 TIM_CtrlPWMOutputs(TIM1, DISABLE);
                 TIM_Cmd(TIM1, DISABLE); // Apagar timer para ahorrar CPU
-                GPIOB->BRR = GPIO_Pin_2; // Speaker OFF
+                
+                // No apagamos el amplificador nunca por ahora para asegurar 
+                // que el Squelch y los tonos DTMF puedan ser escuchados.
+                // GPIOB->BRR = GPIO_Pin_2; // Speaker OFF
             } else {
                 // Nuevo tono
                 SetTone(s_currentSequence[s_sequenceIndex].freq);

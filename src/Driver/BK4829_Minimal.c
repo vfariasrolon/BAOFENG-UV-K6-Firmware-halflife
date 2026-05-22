@@ -57,7 +57,7 @@ static void Rfic_ByteWrite(uint8_t ByteData) {
     }
 }
 
-static void BK4829_WriteReg(uint8_t devAddr, uint16_t devData) {
+void BK4829_WriteReg(uint8_t devAddr, uint16_t devData) {
     RFIC_SCN_L;
     Rfic_delay(5);
     Rfic_ByteWrite(devAddr);
@@ -68,15 +68,30 @@ static void BK4829_WriteReg(uint8_t devAddr, uint16_t devData) {
     RFIC_SCK_L;
 }
 
+void BK4829_ResetBus(void) {
+    // Reinicializar los pines GPIO del SPI en caso de bloqueo
+    GpioModeSwitch(GPIOB, GPIO_Pin_3, 1); // SCN (SPI)
+    GpioModeSwitch(GPIOB, GPIO_Pin_5, 1); // SCK (SPI)
+    GpioModeSwitch(GPIOB, GPIO_Pin_6, 1); // SDA (SPI)
+    RFIC_SCN_H;
+    RFIC_SCK_L;
+    RFIC_SDA_H;
+    Rfic_delay(50); // Pequeña pausa para estabilizar
+}
+
 uint16_t BK4829_ReadReg(uint8_t devAddr) {
-    uint16_t MaskData = 0x8000;
-    uint16_t devData = 0;
-    
-    devAddr |= 0x80; // Bit alto en 1 indica Read
+    uint16_t MaskData;
+    uint16_t devData;
+    uint8_t retries = 0;
+    uint8_t addr_read = devAddr | 0x80; // Bit alto en 1 indica Read
+
+retry:
+    MaskData = 0x8000;
+    devData = 0;
     
     RFIC_SCN_L;
     Rfic_delay(5);
-    Rfic_ByteWrite(devAddr); // Enviar dirección
+    Rfic_ByteWrite(addr_read); // Enviar dirección
     
     RFIC_SCK_L;
     Rfic_delay(5);    
@@ -97,6 +112,16 @@ uint16_t BK4829_ReadReg(uint8_t devAddr) {
     
     RFIC_SCN_H;
     Rfic_delay(5);
+    
+    // Sanity Check: Si el bus devuelve 0x0000 o 0xFFFF, probablemente está colgado
+    if (devData == 0x0000 || devData == 0xFFFF) {
+        retries++;
+        if (retries <= 3) {
+            BK4829_ResetBus();
+            goto retry;
+        }
+    }
+    
     return devData;
 }
 
@@ -143,7 +168,9 @@ void BK4829_Init(void) {
     BK4829_WriteReg(0x37, 0x9F1F);
     BK4829_WriteReg(0x36, 0x0022);
     
-    // AGC / LNA Gains para BK4829
+    BK4829_WriteReg(0x36, 0x0022); // Reloj 26MHz
+    
+    // 3. Configuración de AGC / LNA Gains para BK4829
     BK4829_WriteReg(0x10, 0x0318);
     BK4829_WriteReg(0x11, 0x033A);
     BK4829_WriteReg(0x12, 0x03DB);
@@ -152,7 +179,7 @@ void BK4829_Init(void) {
     BK4829_WriteReg(0x49, 0x2AB2);
     BK4829_WriteReg(0x7B, 0x73DC);
     
-    // Audio, PLL, VCO y Modulación (según codigo fuente original)
+    // 4. Audio, PLL, VCO y Modulación (Bypass y Offset)
     BK4829_WriteReg(0x40, 0x3516);
     BK4829_WriteReg(0x1C, 0x07C0);
     BK4829_WriteReg(0x1D, 0xE555);
@@ -160,7 +187,7 @@ void BK4829_Init(void) {
     BK4829_WriteReg(0x1F, 0xC65A);
     BK4829_WriteReg(0x3E, 0x94C6);
     
-    // Filtros y Preamplificación de Audio
+    // 5. Filtros y Preamplificación de Audio
     BK4829_WriteReg(0x73, 0x4691);
     BK4829_WriteReg(0x77, 0x88EF);
     BK4829_WriteReg(0x28, 0x0B40);
@@ -174,6 +201,11 @@ void BK4829_Init(void) {
     BK4829_WriteReg(0x4A, 0x5430);
     BK4829_WriteReg(0x07, 0x61CE);
     
+    // 6. Configurar Modo de Recepción inicial (Secuencia de reinicio de cadena de audio para BK4829)
+    BK4829_WriteReg(0x30, 0x0119); // Reset filters BK4829
+    BK4829_WriteReg(0x3B, 0x0A0F); // Re-inicia cadena de audio RF a DAC
+    BK4829_WriteReg(0x31, 0x1000);
+    
     // Reloj de Referencia / Cristal
     BK4829_WriteReg(0x01, 0x3FF0);
     
@@ -184,13 +216,20 @@ void BK4829_Init(void) {
     // Registro Maestro del Squelch por defecto
     BK4829_WriteReg(0x48, 0x2340);
     
+    // Activar decodificador DTMF globalmente (Bit 15 = 1, y Threshold)
+    BK4829_WriteReg(0x24, 0x807F | (20 << 7));
+    
     // Fijar Frecuencia a 433.050 MHz
     uint32_t calcFreq = 43305000;
     BK4829_WriteReg(0x38, (uint16_t)calcFreq);
     BK4829_WriteReg(0x39, (uint16_t)(calcFreq >> 16));
     
-    // Modo RX por defecto (valor REAL del codigo fuente original)
-    BK4829_WriteReg(0x30, 0xBFF1);
+    // Configurar Ancho de Banda IF (Wideband) y AGC
+    BK4829_WriteReg(0x43, 0x3028);
+    BK4829_WriteReg(0x47, 0x6040); // AGC Table
+    
+    // Forzar switches físicos e internos a modo RX
+    BK4829_RxEnable(true);
     
     // Abrir squelch para escuchar el piso de ruido RF
     BK4829_SetAudioMute(false);
@@ -219,19 +258,18 @@ void BK4829_TxEnable(bool enable) {
         // dat=1 → temp1 = 0x0100, OR con 0xFF = 0x01FF
         BK4829_WriteReg(0x36, 0x01FF);
         
-        // Activar TX (valor REAL de Rfic_RxTxOnOffSetup(RFIC_TXON))
-        BK4829_WriteReg(0x30, 0xC1FE);
+        // Activar TX (valor REAL para BK4829)
+        BK4829_WriteReg(0x30, 0xC1FE); // MODO TX ACTIVO NATIVO (0xC1FE)
     } else {
-        // Apagar PA via 0x36 (equivalente a Rfic_SetPA(0))
-        BK4829_WriteReg(0x36, 0x007F);
-        
-        // Volver a RX
-        BK4829_RxEnable(true);
+        BK4829_WriteReg(0x30, 0x0000); // IDLE
     }
 }
 
 void BK4829_RxEnable(bool enable) {
     if (enable) {
+        BK4829_WriteReg(0x02, 0x0000); // Clear Int
+        BK4829_WriteReg(0x30, 0x0000); // IDLE primero
+        
         // RF Switch externo: modo RX UHF (A13=HIGH, A14=LOW)
         GPIOA->BRR  = GPIO_Pin_14;
         GPIOA->BSRR = GPIO_Pin_13;
@@ -240,8 +278,9 @@ void BK4829_RxEnable(bool enable) {
         BK4829_SetGpio(0x0008, 1); // RF_GPIO3 = HIGH
         BK4829_SetGpio(0x0004, 0); // RF_GPIO2 = LOW
         
-        // Activar RX (valor REAL de Rfic_RxTxOnOffSetup(RFIC_RXON))
-        BK4829_WriteReg(0x30, 0xBFF1);
+        BK4829_WriteReg(0x30, 0xBFF1); // MODO RX ACTIVO NATIVO (0xBFF1)
+    } else {
+        BK4829_WriteReg(0x30, 0x0000); // IDLE
     }
 }
 
@@ -251,29 +290,44 @@ void BK4829_RxEnable(bool enable) {
 void BK4829_SetAudioMute(bool mute) {
     if (mute) {
         // Cerrar squelch del BK4829 y apagar amplificador externo
-        BK4829_WriteReg(0x48, 0x2340);
+        BK4829_WriteReg(0x78, 0x3040); // Squelch Level 8 cerrado
+        BK4829_WriteReg(0x48, 0x2340); // Mute maestro
         GPIOB->BRR  = GPIO_Pin_2; // SpeakerSwitch(OFF)
     } else {
-        // Abrir squelch y encender amplificador físico de la bocina
-        BK4829_WriteReg(0x48, 0x0000); // Squelch abierto = escucha estática/tonos
-        GPIOB->BSRR = GPIO_Pin_2; // SpeakerSwitch(ON) - ¡EL PIN QUE FALTABA!
+        // Abrir squelch físico y encender amplificador de la bocina
+        BK4829_WriteReg(0x78, 0x0000); // Squelch ABIERTO (Piso de ruido libre)
+        BK4829_WriteReg(0x48, 0x8192); // DAC enable (0x8000) + Volumen + Gain
+        GPIOB->BSRR = GPIO_Pin_2; // SpeakerSwitch(ON)
     }
 }
 
-// Macro que convierte Hz al formato de registro del BK4829
-// Formula extraida de Rfic_SetToneFreq en src_sucio:
-// REG = freq_Hz * 1032444 / 100000
+void BK4829_ForceOpenAudio(void) {
+    // 1. Amplificador físico ON
+    GPIOB->BSRR = GPIO_Pin_2;
+    // 2. Bias de audio ON
+    GPIOA->BSRR = GPIO_Pin_3;
+    // 3. Forzar DAC a volumen máximo y quitar mute
+    BK4829_WriteReg(0x78, 0x0000); // FORZAR SQUELCH ABIERTO
+    BK4829_WriteReg(0x48, 0x83F2); // 0x8000 (ON) | 0x03F0 (Vol Max) | 0x0002 (Gain)
+    // 4. Enrutamiento AFOUT RX hacia DAC interno
+    BK4829_WriteReg(0x47, 0x6142); // 0x6042 nativo + 0x0100 (RX AFOUT)
+    // 5. Configurar filtros base
+    BK4829_WriteReg(0x70, 0x00E0);
+    BK4829_WriteReg(0x74, 0x3B2D);
+    // 6. Reset de cadena de audio y enganchar RXON con todos los LDOs y Clock (0xBFF1)
+    BK4829_WriteReg(0x30, 0x0119);
+    DelayMs(10);
+    BK4829_WriteReg(0x30, 0xBFF1); // ¡EL VALOR CORRECTO DEL DRIVER ORIGINAL (LDOs + Clock + RX)!
+}
+
+// Macro que convierte Hz al formato del registro BK4829
 #define BK4829_HZ_TO_REG(hz)  ((uint16_t)((uint32_t)(hz) * 1032444UL / 100000UL))
 
 void BK4829_PlayLocalBeep(uint16_t freq_hz, uint16_t duration_ms) {
-    // Tono LOCAL: solo bocina, sin transmitir RF
-    // Usa modo TONE (0x30 = 0x0302) en lugar de TXTONE
+    // 1. Encender bocina si no está encendida y abrir Squelch
+    BK4829_SetAudioMute(false);
     
-    // 1. Encender bocina si no está encendida
-    GPIOB->BSRR = GPIO_Pin_2;
-    BK4829_WriteReg(0x48, 0x0000); // Abrir squelch/audio
-    
-    // 2. Modo TONE local (sin portadora de RF)
+    // 2. Modo TONE local (0x0302)
     BK4829_WriteReg(0x30, 0x0302);
     
     // 3. Gain para el tono (bit 15 = enable, bits 14-8 = gain)
@@ -288,19 +342,86 @@ void BK4829_PlayLocalBeep(uint16_t freq_hz, uint16_t duration_ms) {
     // 6. Esperar duración
     DelayMs(duration_ms);
     
-    // 7. Apagar tono y volver a RX
+    // 7. Apagar tono y volver a RX NATIVO
     BK4829_WriteReg(0x3F, 0x0000);
     BK4829_WriteReg(0x70, 0x00E0); // Restaurar gain LNA
-    BK4829_WriteReg(0x30, 0xBFF1); // Volver a RX
+    BK4829_WriteReg(0x30, 0xBFF1); // Volver a RX NATIVO
     BK4829_WriteReg(0x48, 0x2340); // Cerrar squelch
+}
+
+void BK4829_PlayLocalDTMF(uint16_t tone1_hz, uint16_t tone2_hz, uint16_t duration_ms) {
+    // Tono DTMF LOCAL: suena en la bocina sin transmitir RF (Modo TONE = 0x0002)
+    
+    // 1. Encender bocina y abrir squelch de audio
+    GPIOB->BSRR = GPIO_Pin_2;
+    BK4829_WriteReg(0x48, 0x0000); 
+    
+    // 2. Modo TONE local (NO RF, valor real BK4829)
+    BK4829_WriteReg(0x30, 0x0302);
+    
+    // 3. Threshold DTMF y Ganancia para ambos tonos
+    BK4829_WriteReg(0x24, 0x807F | (20 << 7));
+    BK4829_WriteReg(0x70, 0xE0E0); // Ganancia máxima en tono1 y tono2
+    
+    // 4. Programar frecuencias
+    BK4829_WriteReg(0x71, BK4829_HZ_TO_REG(tone1_hz));
+    BK4829_WriteReg(0x72, BK4829_HZ_TO_REG(tone2_hz));
+    
+    // 5. Habilitar salida
+    BK4829_WriteReg(0x3F, 0x0800);
+    
+    // 6. Esperar duración
+    DelayMs(duration_ms);
+    
+    // 7. Apagar todo
+    BK4829_WriteReg(0x3F, 0x0000);
+    uint16_t reg24 = BK4829_ReadReg(0x24) & 0xFFDF;
+    BK4829_WriteReg(0x24, reg24);
+    BK4829_WriteReg(0x70, 0x00E0); // Restaurar gain LNA
+    BK4829_WriteReg(0x30, 0xBFF1); // Volver a RX (BK4829)
+}
+
+void BK4829_PlayDTMFString(const char* digits) {
+    // Reproduce una cadena de texto como tonos DTMF (ej. "1234")
+    // Útil para ringtones ANI o beeps de arranque estilo celular
+    while (*digits) {
+        uint16_t t1 = 0, t2 = 0;
+        char c = *digits;
+        
+        if (c == '1') { t1 = 697; t2 = 1209; }
+        else if (c == '2') { t1 = 697; t2 = 1336; }
+        else if (c == '3') { t1 = 697; t2 = 1477; }
+        else if (c == 'A') { t1 = 697; t2 = 1633; }
+        else if (c == '4') { t1 = 770; t2 = 1209; }
+        else if (c == '5') { t1 = 770; t2 = 1336; }
+        else if (c == '6') { t1 = 770; t2 = 1477; }
+        else if (c == 'B') { t1 = 770; t2 = 1633; }
+        else if (c == '7') { t1 = 852; t2 = 1209; }
+        else if (c == '8') { t1 = 852; t2 = 1336; }
+        else if (c == '9') { t1 = 852; t2 = 1477; }
+        else if (c == 'C') { t1 = 852; t2 = 1633; }
+        else if (c == '*') { t1 = 941; t2 = 1209; }
+        else if (c == '0') { t1 = 941; t2 = 1336; }
+        else if (c == '#') { t1 = 941; t2 = 1477; }
+        else if (c == 'D') { t1 = 941; t2 = 1633; }
+        
+        if (t1 != 0 && t2 != 0) {
+            BK4829_PlayLocalDTMF(t1, t2, 100); // 100ms de tono
+            DelayMs(50); // 50ms de pausa entre tonos
+        }
+        digits++;
+    }
+    
+    // Silenciar radio al terminar toda la secuencia
+    BK4829_SetAudioMute(true);
 }
 
 void BK4829_SendDTMF(uint16_t tone1_hz, uint16_t tone2_hz) {
     // Secuencia exacta de Rfic_EnterDTMFMode + Rfic_SetDtmfFreq del src_sucio
     // Las frecuencias DEBEN convertirse al formato del registro BK4829
     
-    // 1. Modo TXTONE (portadora TX + modulación de tono activa)
-    BK4829_WriteReg(0x30, 0xC3FA);
+    // 1. Modo TXTONE (portadora TX + modulación de tono activa, BK4829 nativo)
+    BK4829_WriteReg(0x30, 0x0003);
     
     // 2. Threshold DTMF
     BK4829_WriteReg(0x24, 0x807F | (20 << 7));
@@ -316,7 +437,7 @@ void BK4829_SendDTMF(uint16_t tone1_hz, uint16_t tone2_hz) {
     BK4829_WriteReg(0x3F, 0x0800);
 }
 
-void BK4829_StopDTMF(void) {
+void BK4829_StopDTMF(bool returnToRx) {
     // 1. Deshabilitar salida DTMF
     BK4829_WriteReg(0x3F, 0x0000);
     
@@ -327,8 +448,70 @@ void BK4829_StopDTMF(void) {
     // 3. Restaurar Gain LNA/IF
     BK4829_WriteReg(0x70, 0x00E0);
     
-    // 4. CRITICO: Volver a modo RX (0xC3FA deja el chip en TX indefinidamente)
-    BK4829_RxEnable(true);
+    // 4. CRITICO: Volver a modo RX solo si se indica
+    if (returnToRx) {
+        BK4829_RxEnable(true);
+    }
+}
+
+void BK4829_SendDTMFStringRF(const char* digits) {
+    // Habilitar transmisión física (PA y RF Switch)
+    BK4829_TxEnable(true);
+    DelayMs(50); // Esperar estabilización del PA
+    
+    while (*digits) {
+        uint16_t t1 = 0, t2 = 0;
+        char c = *digits;
+        
+        if (c == '1') { t1 = 697; t2 = 1209; }
+        else if (c == '2') { t1 = 697; t2 = 1336; }
+        else if (c == '3') { t1 = 697; t2 = 1477; }
+        else if (c == 'A') { t1 = 697; t2 = 1633; }
+        else if (c == '4') { t1 = 770; t2 = 1209; }
+        else if (c == '5') { t1 = 770; t2 = 1336; }
+        else if (c == '6') { t1 = 770; t2 = 1477; }
+        else if (c == 'B') { t1 = 770; t2 = 1633; }
+        else if (c == '7') { t1 = 852; t2 = 1209; }
+        else if (c == '8') { t1 = 852; t2 = 1336; }
+        else if (c == '9') { t1 = 852; t2 = 1477; }
+        else if (c == 'C') { t1 = 852; t2 = 1633; }
+        else if (c == '*') { t1 = 941; t2 = 1209; }
+        else if (c == '0') { t1 = 941; t2 = 1336; }
+        else if (c == '#') { t1 = 941; t2 = 1477; }
+        else if (c == 'D') { t1 = 941; t2 = 1633; }
+        
+        if (t1 != 0 && t2 != 0) {
+            BK4829_SendDTMF(t1, t2); // Inicia modulación RF
+            DelayMs(80); // 80ms de tono
+            BK4829_StopDTMF(false); // Detener tono pero MANTENER TX
+            DelayMs(80); // 80ms de pausa de portadora muda
+        }
+        digits++;
+    }
+    
+    // Al terminar, deshabilitar transmisión y volver a RX
+    BK4829_TxEnable(false);
+}
+
+char BK4829_ReadDTMFDigit(void) {
+    uint16_t reg0c = BK4829_ReadReg(0x0C);
+    if (reg0c & 0x0001) { // DTMF decodificado
+        // Limpiar interrupción
+        BK4829_WriteReg(0x02, 0x0000);
+        
+        uint16_t val = (BK4829_ReadReg(0x0B) >> 8) & 0x0F;
+        char c = '\0';
+        if (val < 10) c = '0' + val;
+        else if (val == 10) c = 'A';
+        else if (val == 11) c = 'B';
+        else if (val == 12) c = 'C';
+        else if (val == 13) c = 'D';
+        else if (val == 14) c = '*';
+        else if (val == 15) c = '#';
+        
+        return c;
+    }
+    return '\0';
 }
 
 // ==========================================
@@ -377,7 +560,7 @@ void BK4829_Test_DTMF_RF(void) {
     }
     
     // 4. Detener modulación
-    BK4829_StopDTMF();
+    BK4829_StopDTMF(true);
     
     // 5. Apagar transmisión (PA) y volver a RX
     BK4829_TxEnable(false);

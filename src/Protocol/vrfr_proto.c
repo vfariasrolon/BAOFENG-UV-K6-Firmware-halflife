@@ -1,252 +1,289 @@
 #include "vrfr_proto.h"
-#include "../App/AppEventManager.h" // Para g_uiState y UI_STATE_PROVISIONING
+#include "../App/AppEventManager.h"
 #include "../Driver/Sc5260.h"
 #include "../Driver/minifont.h"
 #include "../Driver/BK4829_Minimal.h"
+#include "../Core/TimeManager.h"
+#include "../Core/AudioEngine.h"
+#include "../Driver/light_system.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
-/* Buffer Circular de Logs de Diagnóstico */
-static char s_rx_logs[3][17]; // 3 líneas de máx 16 chars + null
+uint32_t g_remoteCounter = 0;
+char g_lastRxData[32] = {0};
+char g_lastTxData[32] = {0};
+char g_statusMsg[16] = "IDLE";
+char g_txRxState[16] = "[RX] IDLE";
 
-/* Estructura central en memoria RAM (simulando memoria persistente) */
-VRFR_AniTable g_aniTable;
-
-/* Variables de la Máquina de Estados del Decodificador DTMF */
-typedef enum {
-    RX_STATE_IDLE,
-    RX_STATE_HEADER,
-    RX_STATE_PAYLOAD,
-    RX_STATE_CHECKSUM
-} VRFR_RxState_Enum;
-
-static VRFR_RxState_Enum s_rxState = RX_STATE_IDLE;
-static VRFR_Frame s_rxFrame;
-static uint8_t s_payloadIndex = 0;
+static uint32_t s_randomSeed = 12345;
 
 /* Motor Pseudoaleatorio Xorshift32 */
-uint32_t VRFR_Xorshift32(uint32_t *state)
-{
+uint32_t VRFR_Xorshift32(uint32_t *state) {
     uint32_t x = *state;
-    /* Prevenir que el estado sea cero (condición fatal para Xorshift) */
     if (x == 0) x = 0xDEADBEEF; 
-    
     x ^= x << 13;
     x ^= x >> 17;
     x ^= x << 5;
-    
     *state = x;
     return x;
 }
 
-/* Stubs de EEPROM */
-void VRFR_EEPROM_SaveProvisionData(uint32_t my_ani, uint32_t seed)
-{
-    g_aniTable.my_ani = my_ani;
-    g_aniTable.current_seed = seed;
-    // En el futuro: I2C_WriteEEPROM(addr, buffer, size);
+// ==========================================
+// RENDERIZADO UI (TEST BENCH)
+// ==========================================
+void VRFR_RenderDiagnostics(void) {
+    if (g_uiState != UI_STATE_TEST_BENCH) return;
+
+    SC5260_ClearArea(0, 0, 128, 64, 0); // Clear background
+    
+    // Línea 1: TX/RX Status
+    UI_DrawText(0, 16, g_txRxState, SCALE_NORMAL);
+    
+    // Línea 2: DTMF Sent/Received
+    char dtmfBuf[32];
+    snprintf(dtmfBuf, sizeof(dtmfBuf), "DTMF: %s", g_lastTxData[0] ? g_lastTxData : (g_lastRxData[0] ? g_lastRxData : "---"));
+    UI_DrawText(0, 32, dtmfBuf, SCALE_NORMAL);
+    
+    // Línea 3: Status/Audio
+    char audioBuf[32];
+    snprintf(audioBuf, sizeof(audioBuf), "AUDIO: %s", g_statusMsg);
+    UI_DrawText(0, 48, audioBuf, SCALE_NORMAL);
+    
+    LCD_UpdateFullScreen();
 }
 
-void VRFR_EEPROM_LoadProvisionData(uint32_t *my_ani, uint32_t *seed)
-{
-    *my_ani = g_aniTable.my_ani;
-    *seed = g_aniTable.current_seed;
+// ==========================================
+// RECEPCIÓN (RX FSM)
+// ==========================================
+typedef enum {
+    RX_STATE_IDLE,
+    RX_STATE_CMD1,
+    RX_STATE_CMD2,
+    RX_STATE_DATA,
+    RX_STATE_CRC
+} VRFR_RxState_Enum;
+
+static VRFR_RxState_Enum s_rxState = RX_STATE_IDLE;
+static char s_rxCmd[3];
+static char s_rxData[32];
+static uint8_t s_rxDataIdx = 0;
+static char s_rxCrc;
+
+static uint8_t CalcCRC(const char* cmd, const char* data) {
+    uint32_t sum = 0;
+    while (*cmd) sum += *cmd++;
+    while (*data) sum += *data++;
+    return (sum % 10) + '0';
 }
 
-/* Manejador de Payload tras validación */
-static void VRFR_ProcessValidFrame(void)
-{
-    if (s_rxFrame.cmd_type == VRFR_CMD_PROVISION) {
-        /* Para PROVISION, requerimos estar explícitamente en el estado adecuado 
-         * y que el payload tenga 12 dígitos: 4 de ANI + 8 de Semilla */
-        if (g_uiState == UI_STATE_PROVISIONING && s_rxFrame.payload_len == 12) {
-            uint32_t parsed_ani = 0;
-            uint32_t parsed_seed = 0;
-            uint8_t i;
-            
-            // Reconstruir ANI (4 nibbles)
-            for (i = 0; i < 4; i++) {
-                parsed_ani = (parsed_ani << 4) | (s_rxFrame.payload[i] & 0x0F);
-            }
-            
-            // Reconstruir Seed (8 nibbles)
-            for (i = 4; i < 12; i++) {
-                parsed_seed = (parsed_seed << 4) | (s_rxFrame.payload[i] & 0x0F);
-            }
-            
-            VRFR_EEPROM_SaveProvisionData(parsed_ani, parsed_seed);
-            
-            VRFR_LogEvent("RX: PROV OK");
-            
-            // Éxito: Podemos volver a MAIN
-            g_uiState = UI_STATE_MAIN;
-        } else {
-            VRFR_LogEvent("RX: PROV REJECT");
-        }
-    } else {
-        char buf[17];
-        snprintf(buf, sizeof(buf), "RX: CMD %d", s_rxFrame.cmd_type);
-        VRFR_LogEvent(buf);
+static void VRFR_ProcessPayload(void) {
+    // Verificar CRC
+    char expectedCrc = CalcCRC(s_rxCmd, s_rxData);
+    if (expectedCrc != s_rxCrc) {
+        strcpy(g_statusMsg, "CRC ERR");
+        VRFR_RenderDiagnostics();
+        return;
     }
+
+    strcpy(g_lastRxData, s_rxData);
+
+    if (strcmp(s_rxCmd, VRFR_CMD_HANDSHAKE) == 0) {
+        uint32_t receivedRand = atoi(s_rxData);
+        char response[16];
+        snprintf(response, sizeof(response), "%lu", (unsigned long)(receivedRand + 1));
+        VRFR_SendPayload(VRFR_CMD_ACK, response);
+        strcpy(g_statusMsg, "HNDSHK OK");
+        AudioEngine_PlayAck();
+    } 
+    else if (strcmp(s_rxCmd, VRFR_CMD_LIGHT_OFF) == 0) {
+        LightSystem_Set(0);
+        VRFR_SendPayload(VRFR_CMD_ACK, "0");
+        strcpy(g_statusMsg, "LIG OFF");
+        AudioEngine_PlayAck();
+    } 
+    else if (strcmp(s_rxCmd, VRFR_CMD_LIGHT_ON) == 0) {
+        LightSystem_Set(1);
+        VRFR_SendPayload(VRFR_CMD_ACK, "0");
+        strcpy(g_statusMsg, "LIG ON");
+        AudioEngine_PlayAck();
+    } 
+    else if (strcmp(s_rxCmd, VRFR_CMD_CNT) == 0) {
+        g_remoteCounter++;
+        char cntStr[16];
+        snprintf(cntStr, sizeof(cntStr), "%lu", (unsigned long)g_remoteCounter);
+        VRFR_SendPayload(VRFR_CMD_ACK, cntStr);
+        strcpy(g_statusMsg, "CNT++");
+        AudioEngine_PlayAck();
+    }
+    else if (strcmp(s_rxCmd, VRFR_CMD_ACK) == 0) {
+        strcpy(g_statusMsg, "ACK OK");
+        AudioEngine_PlayAck();
+    }
+
+    VRFR_RenderDiagnostics();
 }
 
-/* Máquina de estados de capa física (RX Engine) */
-void VRFR_HandleIncomingTone(uint8_t tone)
-{
-    uint8_t expected_payload_len = 0;
-
-    /* Un preámbulo siempre fuerza un reseteo de la máquina de estados */
-    if (tone == VRFR_PREAMBLE_TONE) {
-        s_rxState = RX_STATE_HEADER;
-        s_rxFrame.preamble = tone;
-        s_payloadIndex = 0;
+void VRFR_HandleIncomingTone(char tone) {
+    if (tone == 'A') { // START_TOKEN
+        s_rxState = RX_STATE_CMD1;
+        s_rxDataIdx = 0;
+        memset(s_rxData, 0, sizeof(s_rxData));
         return;
     }
 
     switch (s_rxState) {
         case RX_STATE_IDLE:
-            // Ignorar basura en el aire
             break;
-
-        case RX_STATE_HEADER:
-            s_rxFrame.cmd_type = tone;
-            s_rxState = RX_STATE_PAYLOAD;
+        case RX_STATE_CMD1:
+            s_rxCmd[0] = tone;
+            s_rxState = RX_STATE_CMD2;
             break;
-
-        case RX_STATE_PAYLOAD:
-            s_rxFrame.payload[s_payloadIndex++] = tone;
-            
-            // Determinar longitud del payload según comando
-            if (s_rxFrame.cmd_type == VRFR_CMD_PROVISION) expected_payload_len = 12;
-            else if (s_rxFrame.cmd_type == VRFR_CMD_CALL) expected_payload_len = 8; // Ej: 4 src, 4 dst
-            else expected_payload_len = 8; // Default genérico
-
-            if (s_payloadIndex >= expected_payload_len) {
-                s_rxFrame.payload_len = expected_payload_len;
-                s_rxState = RX_STATE_CHECKSUM;
-            } else if (s_payloadIndex >= MAX_PAYLOAD_LEN) {
-                // Desbordamiento (Corrupción masiva o ataque)
+        case RX_STATE_CMD2:
+            s_rxCmd[1] = tone;
+            s_rxCmd[2] = '\0';
+            s_rxState = RX_STATE_DATA;
+            break;
+        case RX_STATE_DATA:
+            if (tone == 'D') { // END_TOKEN for empty payload
+                s_rxCrc = '0'; // default
+                VRFR_ProcessPayload();
                 s_rxState = RX_STATE_IDLE;
+            } else if (tone == 'C') {
+                // Separator, ignore
+            } else {
+                s_rxData[s_rxDataIdx++] = tone;
+                // Asumimos que el último caracter antes de D es CRC
+                // Esto se maneja viendo cuándo llega D
             }
             break;
+        case RX_STATE_CRC:
+            break;
+    }
+}
 
-        case RX_STATE_CHECKSUM:
-            s_rxFrame.checksum = tone;
-            
-            // Validar Checksum
-            {
-                uint8_t calc_sum = s_rxFrame.cmd_type;
-                for (uint8_t i = 0; i < s_rxFrame.payload_len; i++) {
-                    calc_sum += s_rxFrame.payload[i];
-                }
-                calc_sum = calc_sum % 16;
-                
-                if (calc_sum == s_rxFrame.checksum) {
-                    VRFR_ProcessValidFrame();
-                } else {
-                    VRFR_LogEvent("RX: CHK FAIL");
-                }
+// ==========================================
+// ESTADOS DE TRANSMISIÓN Y TIMEOUT
+// ==========================================
+typedef enum {
+    TX_STATE_IDLE,
+    TX_STATE_WAIT_ACK,
+    TX_STATE_ERROR
+} VRFR_TxState_Enum;
+
+static VRFR_TxState_Enum s_txState = TX_STATE_IDLE;
+static uint32_t s_txWaitStart = 0;
+static uint8_t s_txRetries = 0;
+static char s_txLastCmd[3] = {0};
+static char s_txLastData[32] = {0};
+
+void VRFR_SendPayload(const char* cmd, const char* data) {
+    char packet[64] = {0};
+    int pIdx = 0;
+    
+    strcpy(s_txLastCmd, cmd);
+    strcpy(s_txLastData, data);
+    
+    strcpy(g_statusMsg, "TXING...");
+    strcpy(g_txRxState, "[TX] HOP+");
+    snprintf(g_lastTxData, sizeof(g_lastTxData), "%s:%s", cmd, data);
+    g_lastRxData[0] = '\0'; // Limpiar rx display
+    VRFR_RenderDiagnostics();
+    
+    // Formato: A CMD DATA CRC D
+    packet[pIdx++] = 'A';
+    packet[pIdx++] = cmd[0];
+    packet[pIdx++] = cmd[1];
+    
+    // Copiar DATA e inyectar 'C' cada 4 dígitos
+    int chunk = 0;
+    for (int i = 0; data[i] != '\0'; i++) {
+        if (chunk == 4) {
+            packet[pIdx++] = 'C';
+            chunk = 0;
+        }
+        packet[pIdx++] = data[i];
+        chunk++;
+    }
+    
+    // Checksum
+    packet[pIdx++] = CalcCRC(cmd, data);
+    packet[pIdx++] = 'D';
+    packet[pIdx] = '\0';
+    
+    BK4829_SendDTMFStringRF(packet);
+    
+    strcpy(g_txRxState, "[RX] IDLE");
+    VRFR_RenderDiagnostics();
+    
+    // Si no es un ACK, esperamos un ACK de vuelta
+    if (strcmp(cmd, VRFR_CMD_ACK) != 0) {
+        s_txState = TX_STATE_WAIT_ACK;
+        s_txWaitStart = g_SystemTick;
+    } else {
+        s_txState = TX_STATE_IDLE;
+    }
+}
+
+// Reemplazar VRFR_Tick original por uno que también gestione el timeout
+void VRFR_Tick(void) {
+    // 1. Manejo de Timeout de TX
+    if (s_txState == TX_STATE_WAIT_ACK) {
+        if ((g_SystemTick - s_txWaitStart) > 500) { // 500ms timeout
+            if (s_txRetries < 2) {
+                s_txRetries++;
+                strcpy(g_statusMsg, "RETRYING");
+                VRFR_RenderDiagnostics();
+                // Reenviar
+                VRFR_SendPayload(s_txLastCmd, s_txLastData);
+                // (VRFR_SendPayload resetea s_txWaitStart)
+            } else {
+                s_txState = TX_STATE_ERROR;
+                strcpy(g_statusMsg, "ERR");
+                s_txRetries = 0;
+                VRFR_RenderDiagnostics();
             }
-            
-            // Volver a estado de reposo, independientemente de si el check falló
+        }
+    }
+
+    // 2. Recepción de DTMF
+    char c = BK4829_ReadDTMFDigit();
+    if (c != '\0') {
+        if (s_rxState == RX_STATE_DATA && c == 'D') {
+            if (s_rxDataIdx > 0) {
+                s_rxCrc = s_rxData[s_rxDataIdx - 1];
+                s_rxData[s_rxDataIdx - 1] = '\0'; 
+            } else {
+                s_rxCrc = '0';
+            }
+            VRFR_ProcessPayload();
             s_rxState = RX_STATE_IDLE;
-            break;
+            
+            // Si recibimos cualquier trama válida (que processpayload ya verificó), 
+            // asumimos que nos están contestando (o enviando un comando).
+            // Si estábamos esperando ACK y llegó, lo manejamos.
+            if (strcmp(g_lastRxData, VRFR_CMD_ACK) == 0 || strstr(g_statusMsg, "ACK OK") != NULL) {
+                s_txState = TX_STATE_IDLE;
+                s_txRetries = 0;
+            }
+            
+        } else {
+            VRFR_HandleIncomingTone(c);
+        }
     }
 }
 
-/* Test Bench y Logging Engine */
-void VRFR_LogEvent(const char* msg)
-{
-    // En lugar de hacer scroll (lo cual confunde visualmente como 'empalme'), 
-    // simplemente sobreescribimos el último evento en la línea central.
-    strncpy(s_rx_logs[0], msg, 15);
-    s_rx_logs[0][15] = '\0';
-    
-    if (g_uiState == UI_STATE_TEST_BENCH) {
-        VRFR_RenderDiagnostics();
-        LCD_UpdatePages(4, 6);
+void VRFR_ProcessLocalKey(uint8_t key) {
+    // Ejemplo de llamadas locales desde botones
+    if (key == 1) {
+        VRFR_SendPayload(VRFR_CMD_LIGHT_OFF, "0");
+    } else if (key == 2) {
+        VRFR_SendPayload(VRFR_CMD_LIGHT_ON, "0");
+    } else if (key == 3) {
+        VRFR_SendPayload(VRFR_CMD_CNT, "0");
     }
 }
 
-void VRFR_RenderDiagnostics(void)
-{
-    // Limpiar toda la zona de logs para evitar basura visual
-    UI_ClearLine(32); // Página 4
-    UI_ClearLine(40); // Página 5
-    UI_ClearLine(48); // Página 6
-
-    // Dibujar el único evento en la página 6 (abajo) con texto estático
-    UI_DrawText(0, 48, s_rx_logs[0], SCALE_TINY);
-    
-    // Solo actualizar las páginas exclusivas de logs (Páginas 4 a 6)
-    LCD_UpdatePages(4, 6);
-}
-
-extern volatile uint8_t g_vrfr_tx_blink_counter;
-extern void DelayMs(uint32_t ms);
-
-void VRFR_Test_Send_Ping(uint32_t target_ani)
-{
-    // 1. Inicializar hardware y frecuencia base
-    BK4829_Init();
-    
-    // 2. Encender Transmisor y Amplificador
-    BK4829_TxEnable(true);
-    BK4829_TestBench_UpdateStatus(true);
-    
-    // 3. Emitir PING DTMF (Tonos simulados: 697 Hz y 1209 Hz -> '1')
-    BK4829_SetAudioMute(false); // <--- Habilitar bocina
-    BK4829_SendDTMF(697, 1209);
-    DelayMs(300); // Duración del tono
-    BK4829_StopDTMF();
-    BK4829_SetAudioMute(true);  // <--- Mutear bocina
-    
-    // 4. Apagar Transmisor y volver a RX
-    BK4829_TxEnable(false);
-    BK4829_TestBench_UpdateStatus(false);
-    
-    // Feedback local en logs
-    VRFR_LogEvent("TX: PING SENT");
-}
-
-void VRFR_Test_Send_FreqJump(int dir)
-{
-    // Igual que PING pero distinto tono o log
-    BK4829_TxEnable(true);
-    BK4829_TestBench_UpdateStatus(true);
-    
-    // Tonos: 770 Hz y 1336 Hz -> '5'
-    BK4829_SetAudioMute(false);
-    BK4829_SendDTMF(770, 1336);
-    DelayMs(300);
-    BK4829_StopDTMF();
-    BK4829_SetAudioMute(true);
-    
-    BK4829_TxEnable(false);
-    BK4829_TestBench_UpdateStatus(false);
-    
-    VRFR_LogEvent("TX: JUMP SENT");
-}
-
-uint32_t VRFR_Test_Send_Random(void)
-{
-    BK4829_TxEnable(true);
-    BK4829_TestBench_UpdateStatus(true);
-    
-    // Generar un salto random real basado en la semilla local
-    uint32_t new_seed = VRFR_Xorshift32(&g_aniTable.current_seed);
-    
-    // Tonos: 852 Hz y 1477 Hz -> '9'
-    BK4829_SetAudioMute(false);
-    BK4829_SendDTMF(852, 1477);
-    DelayMs(300);
-    BK4829_StopDTMF();
-    BK4829_SetAudioMute(true);
-    
-    BK4829_TxEnable(false);
-    BK4829_TestBench_UpdateStatus(false);
-    
-    VRFR_LogEvent("TX: RAND SENT");
-    
-    return new_seed;
+void VRFR_Init(void) {
+    s_randomSeed = g_SystemTick + 123;
 }

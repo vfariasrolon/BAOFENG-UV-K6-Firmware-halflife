@@ -24,9 +24,10 @@ extern void App_50msTask(void)
 {
     g_50msFlag = FALSE;
 
-    ScanTask();
-    
-    DualStandbyTask();
+    if (g_uiState != UI_STATE_TEST_BENCH) {
+        ScanTask();
+        DualStandbyTask();
+    }
     
     LCD_CheckBackLight();
 }
@@ -54,7 +55,11 @@ extern void App_500msTask(void)
 {
     g_500msFlag = FALSE;
     BatteryCheckTask();
-    CalculateSqlLevel();
+    
+    if (g_uiState != UI_STATE_TEST_BENCH) {
+        CalculateSqlLevel();
+    }
+    
     CheckSjTimeout();
 }
 
