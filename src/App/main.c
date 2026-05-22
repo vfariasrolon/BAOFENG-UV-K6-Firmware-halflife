@@ -3,6 +3,7 @@
 #include "AppEventManager.h"
 #include "../Driver/minifont.h"
 #include "../Driver/watchdog.h"
+#include "../Driver/BK4829_Minimal.h"
 
 void BeepPowerOn(void)
 {
@@ -51,7 +52,7 @@ int main(void)
     RadioConfig_Init();
     g_radioInform.language = LANG_EN; // Force English language globally to remove all Chinese voice and menus
     UI_DisplayPowerOn();
-    Rfic_Init();
+    BK4829_Init(); // Arrancar hardware de RF en 433.050 MHz
     ChannelCheckActiveAll();
     BeepPowerOn();
     BatteryInitLevel();
@@ -116,6 +117,16 @@ int main(void)
     // TEST BENCH inicialmente vacío o con indicación de que está listo
     UI_DrawText(20, 24, "WAITING CMD...", SCALE_NORMAL);
     LCD_UpdateFullScreen();
+    
+    // Pitido de validación LOCAL de bocina (sin transmitir RF)
+    // Tono de arranque: doble beep corto para indicar sistema OK
+    BK4829_PlayLocalBeep(1000, 150); // 1kHz, 150ms
+    DelayMs(80);
+    BK4829_PlayLocalBeep(1200, 150); // 1.2kHz, 150ms
+    
+    // Silenciar al terminar: cerrar squelch y apagar amplificador de bocina
+    // El radio queda en RX quieto (squelch cerrado hasta que llegue señal)
+    BK4829_SetAudioMute(true);
     
     while(1)
     {

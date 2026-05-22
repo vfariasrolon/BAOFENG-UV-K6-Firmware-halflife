@@ -2,7 +2,7 @@
 #include "../App/AppEventManager.h" // Para g_uiState y UI_STATE_PROVISIONING
 #include "../Driver/Sc5260.h"
 #include "../Driver/minifont.h"
-#include "../Driver/BK4829_stub.h"
+#include "../Driver/BK4829_Minimal.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -157,34 +157,25 @@ void VRFR_HandleIncomingTone(uint8_t tone)
 /* Test Bench y Logging Engine */
 void VRFR_LogEvent(const char* msg)
 {
-    // Desplazar historial (evitar strcpy directo si se traslapa, aunque aquí es seguro)
-    strncpy(s_rx_logs[2], s_rx_logs[1], 15);
-    s_rx_logs[2][15] = '\0';
-    strncpy(s_rx_logs[1], s_rx_logs[0], 15);
-    s_rx_logs[1][15] = '\0';
-    
-    // Insertar nuevo
+    // En lugar de hacer scroll (lo cual confunde visualmente como 'empalme'), 
+    // simplemente sobreescribimos el último evento en la línea central.
     strncpy(s_rx_logs[0], msg, 15);
     s_rx_logs[0][15] = '\0';
     
     if (g_uiState == UI_STATE_TEST_BENCH) {
         VRFR_RenderDiagnostics();
-        LCD_UpdateFullScreen();
+        LCD_UpdatePages(4, 6);
     }
 }
 
 void VRFR_RenderDiagnostics(void)
 {
-    // Limpiar zona inferior usando Dirty Regions
+    // Limpiar toda la zona de logs para evitar basura visual
     UI_ClearLine(32); // Página 4
     UI_ClearLine(40); // Página 5
     UI_ClearLine(48); // Página 6
 
-    // Usar SCALE_TINY (texto pequeño)
-    // El historial más viejo en la parte de arriba
-    UI_DrawText(0, 32, s_rx_logs[2], SCALE_TINY);
-    UI_DrawText(0, 40, s_rx_logs[1], SCALE_TINY);
-    // El evento más nuevo en la parte de abajo (scroll tipo consola)
+    // Dibujar el único evento en la página 6 (abajo) con texto estático
     UI_DrawText(0, 48, s_rx_logs[0], SCALE_TINY);
     
     // Solo actualizar las páginas exclusivas de logs (Páginas 4 a 6)
@@ -196,31 +187,66 @@ extern void DelayMs(uint32_t ms);
 
 void VRFR_Test_Send_Ping(uint32_t target_ani)
 {
-    BK4829_SetAudioMute(false);
-    BK4829_SetAudioGain(25);
-    // Simula envío de ping parpadeando
-    g_vrfr_tx_blink_counter = 4;
-    DelayMs(300); // Para poder observar el AUDIO: ON en los logs
-    BK4829_SetAudioMute(true);
+    // 1. Inicializar hardware y frecuencia base
+    BK4829_Init();
+    
+    // 2. Encender Transmisor y Amplificador
+    BK4829_TxEnable(true);
+    BK4829_TestBench_UpdateStatus(true);
+    
+    // 3. Emitir PING DTMF (Tonos simulados: 697 Hz y 1209 Hz -> '1')
+    BK4829_SetAudioMute(false); // <--- Habilitar bocina
+    BK4829_SendDTMF(697, 1209);
+    DelayMs(300); // Duración del tono
+    BK4829_StopDTMF();
+    BK4829_SetAudioMute(true);  // <--- Mutear bocina
+    
+    // 4. Apagar Transmisor y volver a RX
+    BK4829_TxEnable(false);
+    BK4829_TestBench_UpdateStatus(false);
+    
+    // Feedback local en logs
+    VRFR_LogEvent("TX: PING SENT");
 }
 
 void VRFR_Test_Send_FreqJump(int dir)
 {
+    // Igual que PING pero distinto tono o log
+    BK4829_TxEnable(true);
+    BK4829_TestBench_UpdateStatus(true);
+    
+    // Tonos: 770 Hz y 1336 Hz -> '5'
     BK4829_SetAudioMute(false);
-    BK4829_SetAudioGain(25);
-    g_vrfr_tx_blink_counter = 4;
+    BK4829_SendDTMF(770, 1336);
     DelayMs(300);
+    BK4829_StopDTMF();
     BK4829_SetAudioMute(true);
+    
+    BK4829_TxEnable(false);
+    BK4829_TestBench_UpdateStatus(false);
+    
+    VRFR_LogEvent("TX: JUMP SENT");
 }
 
 uint32_t VRFR_Test_Send_Random(void)
 {
-    BK4829_SetAudioMute(false);
-    BK4829_SetAudioGain(25);
+    BK4829_TxEnable(true);
+    BK4829_TestBench_UpdateStatus(true);
+    
     // Generar un salto random real basado en la semilla local
     uint32_t new_seed = VRFR_Xorshift32(&g_aniTable.current_seed);
-    g_vrfr_tx_blink_counter = 4;
+    
+    // Tonos: 852 Hz y 1477 Hz -> '9'
+    BK4829_SetAudioMute(false);
+    BK4829_SendDTMF(852, 1477);
     DelayMs(300);
+    BK4829_StopDTMF();
     BK4829_SetAudioMute(true);
+    
+    BK4829_TxEnable(false);
+    BK4829_TestBench_UpdateStatus(false);
+    
+    VRFR_LogEvent("TX: RAND SENT");
+    
     return new_seed;
 }

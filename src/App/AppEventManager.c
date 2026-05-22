@@ -3,8 +3,11 @@
 #include "../Driver/led.h"
 #include "../Common/prototypes.h"
 #include "../Driver/Sc5260.h"
-#include "../Driver/minifont.h"
+#include "../Driver/keyboard.h"
 #include "../Protocol/vrfr_proto.h"
+#include "../Driver/BK4829_Minimal.h"
+#include <stdio.h>
+#include "../Driver/minifont.h"
 
 volatile UI_State_Enum g_uiState = UI_STATE_TEST_BENCH;
 volatile U8 g_vrfr_tx_blink_counter = 0;
@@ -119,15 +122,25 @@ void App_EventManager(KeyID_Enum key)
                 
                 VRFR_Test_Send_FreqJump(1);
             } else if (key == KEYID_DOWN) {
+                // Diagnóstico SPI de Bajo Nivel
+                uint16_t chip_id = BK4829_ReadReg(0x00);
+                char log_buf[16];
+                snprintf(log_buf, sizeof(log_buf), "ID: 0x%04X", chip_id);
+                VRFR_LogEvent(log_buf);
+
                 UI_ClearLine(0);
-                UI_DrawText(0, 0, "[TX] HOP-", SCALE_TINY);
+                UI_DrawText(0, 0, "[TX] CARRIER", SCALE_TINY);
                 UI_ClearLine(8);
-                UI_DrawText(0, 8, "DTMF: *388884   ", SCALE_TINY);
+                UI_DrawText(0, 8, "5 SECONDS...    ", SCALE_TINY);
                 LCD_UpdatePages(0, 1);
                 
                 VRFR_RenderDiagnostics();
                 
-                VRFR_Test_Send_FreqJump(-1);
+                // Disparar portadora limpia para prueba de RF
+                BK4829_Test_Carrier5s();
+                
+                UI_DrawText(0, 8, "DONE.           ", SCALE_TINY);
+                LCD_UpdatePages(0, 1);
             } else if (key == KEYID_PTT) {
                 // Pre-calcular la semilla para mostrarla
                 uint32_t simulated_seed = g_aniTable.current_seed;
