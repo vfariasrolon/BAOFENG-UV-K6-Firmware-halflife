@@ -133,11 +133,8 @@ int main(void)
     
     WDT_Init();
     
-    g_uiState = UI_STATE_TEST_BENCH;
+    g_uiState = UI_STATE_MAIN;
     Light_LedTopToggle();
-    SC5260_ClearArea(0, 0, 128, 64, 0);
-    UI_DrawText(20, 24, "SISTEMA ESTABLE", SCALE_NORMAL);
-    UI_DrawText(20, 40, "VRFR LISTO", SCALE_NORMAL);
     LCD_UpdateFullScreen();
     
     // Registrar Tareas
