@@ -22,5 +22,6 @@ uint16_t BK4829_ReadReg(uint8_t devAddr);
 // Lógica de Protocolo y Test
 void BK4829_TestBench_UpdateStatus(bool tx_active);
 void BK4829_Test_Carrier5s(void);
+void BK4829_Test_DTMF_RF(void);
 
 #endif /* __BK4829_MINIMAL_H */

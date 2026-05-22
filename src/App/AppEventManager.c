@@ -113,14 +113,18 @@ void App_EventManager(KeyID_Enum key)
                 VRFR_Test_Send_Ping(0);
             } else if (key == KEYID_UP) {
                 UI_ClearLine(0);
-                UI_DrawText(0, 0, "[TX] HOP+", SCALE_TINY);
+                UI_DrawText(0, 0, "[TX] DTMF RF ", SCALE_TINY);
                 UI_ClearLine(8);
-                UI_DrawText(0, 8, "DTMF: *399994   ", SCALE_TINY);
+                UI_DrawText(0, 8, "TESTING...      ", SCALE_TINY);
                 LCD_UpdatePages(0, 1);
                 
                 VRFR_RenderDiagnostics();
                 
-                VRFR_Test_Send_FreqJump(1);
+                // Prueba de 3 segundos de tono DTMF real por aire
+                BK4829_Test_DTMF_RF();
+                
+                UI_DrawText(0, 8, "DONE.           ", SCALE_TINY);
+                LCD_UpdatePages(0, 1);
             } else if (key == KEYID_DOWN) {
                 // Diagnóstico SPI de Bajo Nivel
                 uint16_t chip_id = BK4829_ReadReg(0x00);

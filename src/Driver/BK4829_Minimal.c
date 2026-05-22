@@ -361,3 +361,25 @@ void BK4829_Test_Carrier5s(void) {
     BK4829_TxEnable(false);
     BK4829_TestBench_UpdateStatus(false);
 }
+
+void BK4829_Test_DTMF_RF(void) {
+    // 1. Abrir transmisión física (PA)
+    BK4829_TxEnable(true);
+    BK4829_TestBench_UpdateStatus(true);
+    
+    // 2. Iniciar modulación DTMF (usamos 941 y 1336 que son detectables fácilmente)
+    BK4829_SendDTMF(941, 1336);
+    
+    // 3. Transmitir el tono durante 3 segundos
+    for(int i = 0; i < 30; i++) {
+        DelayMs(100);
+        WDT_Refresh();
+    }
+    
+    // 4. Detener modulación
+    BK4829_StopDTMF();
+    
+    // 5. Apagar transmisión (PA) y volver a RX
+    BK4829_TxEnable(false);
+    BK4829_TestBench_UpdateStatus(false);
+}
