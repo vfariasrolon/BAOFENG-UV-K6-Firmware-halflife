@@ -142,14 +142,17 @@ typedef enum {
 static VRFR_TxState_Enum s_txState = TX_STATE_IDLE;
 static uint32_t s_txWaitStart = 0;
 static uint8_t s_txRetries = 0;
-static char s_txLastCmd[3] = {0};
+static char s_txLastCmd[4] = {0};
 static char s_txLastData[32] = {0};
 
 void VRFR_SendPayload(const char* cmd, const char* data) {
     char packet[64] = {0};
     
-    strcpy(s_txLastCmd, cmd);
-    strcpy(s_txLastData, data);
+    // Evitar overflow
+    strncpy(s_txLastCmd, cmd, sizeof(s_txLastCmd) - 1);
+    s_txLastCmd[sizeof(s_txLastCmd) - 1] = '\0';
+    strncpy(s_txLastData, data, sizeof(s_txLastData) - 1);
+    s_txLastData[sizeof(s_txLastData) - 1] = '\0';
     
     strcpy(g_statusMsg, "TXING...");
     strcpy(g_txRxState, "[TX] FSK");
@@ -157,15 +160,21 @@ void VRFR_SendPayload(const char* cmd, const char* data) {
     g_lastRxData[0] = '\0'; // Limpiar rx display
     VRFR_RenderDiagnostics();
     
-    // Formato FSK: CMD + DATA + CRC
-    int pIdx = snprintf(packet, sizeof(packet), "%s%s%c", cmd, data, CalcCRC(cmd, data));
-    
     uint8_t target_len = g_fsk_test_configs[g_fsk_current_cfg].payload_len;
     
-    // Rellenar con ceros hasta alcanzar exactamente el tamaño objetivo
-    for (int i = pIdx; i < target_len; i++) {
-        packet[i] = 0;
-    }
+    // Inicializar todo a ceros
+    memset(packet, 0, sizeof(packet));
+    
+    // CMD (3 bytes exactos, truncar o rellenar)
+    strncpy((char*)packet, cmd, 3);
+    
+    // DATA (resto de los bytes disponibles antes del CRC)
+    uint8_t max_data_len = target_len - 3 - 1; // 3 para CMD, 1 para CRC
+    strncpy((char*)&packet[3], data, max_data_len);
+    
+    // CRC se coloca siempre en el ÚLTIMO byte del target_len
+    // Calculamos CRC ignorando los ceros de padding
+    packet[target_len - 1] = CalcCRC(cmd, data);
     
     // Transmitir en bloque
     BK4829_SendFSKData((const uint8_t*)packet, target_len);
@@ -206,22 +215,22 @@ void VRFR_Tick(void) {
     uint8_t fskBuf[64] = {0};
     uint8_t len = BK4829_GetFSKData(fskBuf);
     
-    if (len >= 3) { // min length: CMD (2) + CRC (1)
-        // El último byte es CRC
+    if (len >= 4) { // min length: CMD (3) + CRC (1)
+        // El último byte del buffer entregado por hardware es el CRC
         s_rxCrc = fskBuf[len - 1];
         
-        // Extraer CMD (2 bytes)
+        // Extraer CMD (3 bytes)
         s_rxCmd[0] = fskBuf[0];
         s_rxCmd[1] = fskBuf[1];
-        s_rxCmd[2] = '\0';
+        s_rxCmd[2] = fskBuf[2];
+        s_rxCmd[3] = '\0';
         
-        // Extraer Data
-        uint8_t dataLen = len - 3;
+        // Extraer Data (truncando en el primer null o el límite)
+        uint8_t dataLen = len - 3 - 1; // restar CMD y CRC
+        s_rxData[0] = '\0';
         if (dataLen > 0 && dataLen < sizeof(s_rxData)) {
-            memcpy(s_rxData, &fskBuf[2], dataLen);
+            memcpy(s_rxData, &fskBuf[3], dataLen);
             s_rxData[dataLen] = '\0';
-        } else {
-            s_rxData[0] = '\0';
         }
         
         VRFR_ProcessPayload();
