@@ -225,4 +225,7 @@ void VRFR_ProcessLocalKey(uint8_t key) {
 
 void VRFR_Init(void) {
     s_randomSeed = g_SystemTick + 123;
+    
+    // Preparar el módem FSK para escuchar inmediatamente al arrancar
+    BK4829_PrepareFSKReceive();
 }

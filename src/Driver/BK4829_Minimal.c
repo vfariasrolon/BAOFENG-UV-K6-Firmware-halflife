@@ -604,7 +604,7 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
     BK4829_WriteReg(0x58, 0x37C3); // FSK Enable, 1200 TX
     BK4829_WriteReg(0x72, 0x3065); // Tone2 1200Hz para FSK
     BK4829_WriteReg(0x70, 0x00E0); // Enable Tone2, Gain
-    BK4829_WriteReg(0x5D, (length << 8)); // FSK Data Length
+    BK4829_WriteReg(0x5D, ((length - 1) << 8)); // FSK Data Length (El chip usa length-1)
     
     // 3. Limpiar FIFO y sincronizar
     BK4829_WriteReg(0x59, 0x8068); 
@@ -634,12 +634,12 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
     uint16_t wait_ms = (length * 10) + 150;
     DelayMs(wait_ms);
     
-    // 7. Apagar módem FSK y retornar a Mute/RX
+    // 7. Apagar módem FSK de TX y retornar a modo Escucha (RX) FSK
     BK4829_WriteReg(0x59, 0x0068);
-    BK4829_WriteReg(0x70, 0x0000);
-    BK4829_WriteReg(0x58, 0x0000);
-    
     BK4829_SetAudioMute(true);
+    
+    // Preparar el módem para escuchar una respuesta de inmediato
+    BK4829_PrepareFSKReceive();
 }
 
 void BK4829_PrepareFSKReceive(void) {
@@ -648,30 +648,40 @@ void BK4829_PrepareFSKReceive(void) {
     BK4829_WriteReg(0x59, 0x0068);
     DelayMs(10);
     
-    // 2. Reactivar RX FSK
+    // 2. Configurar el módem FSK para RX (Crítico: si no se activa 0x58, no escucha nada)
+    BK4829_WriteReg(0x58, 0x00C1); // FSK Enable, RX Bandwidth 1.2K
+    BK4829_WriteReg(0x72, 0x3065); // Tone2 1200Hz para FSK
+    BK4829_WriteReg(0x70, 0x00E0); // Enable Tone2, Gain
+    BK4829_WriteReg(0x5C, 0x5665); // Enable CRC nativo / config
+    
+    // 3. Reactivar RX FSK
     BK4829_RxEnable(true);
-    BK4829_WriteReg(0x3F, 0x0008); // Activar Interrupción FSK_RX_FINISHED (Bit 3 en BK4819/29)
+    BK4829_WriteReg(0x3F, 0x2000); // Activar Interrupción FSK_RX_FINISHED (Bit 13 en BK4829)
     
     BK4829_WriteReg(0x59, 0x4068); // Limpiar RX FIFO
     BK4829_WriteReg(0x59, 0x3068); // Iniciar FSK RX
 }
 
 uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
-    // 1. Verificar si la interrupción de recepción FSK disparó (Bit 3)
+    // 1. Verificar si la interrupción de recepción FSK disparó
+    // En BK4829, la bandera de FSK RX es el Bit 0 del registro 0x0C
     uint16_t reg0c = BK4829_ReadReg(0x0C);
-    if ((reg0c & 0x0008) == 0) {
+    if ((reg0c & 0x0001) == 0) {
         return 0; // Nada recibido
     }
     
     // Limpiar flag
     BK4829_WriteReg(0x02, 0x0000);
     
-    // 2. Leer la longitud del payload recibido (0x5D bajo)
+    // 2. Leer la longitud del payload recibido (0x5D alto)
+    // El chip BK4829 almacena la longitud RX (menos 1) en los bits [15:8]
     uint16_t reg5d = BK4829_ReadReg(0x5D);
-    uint8_t length = reg5d & 0x00FF;
-    if (length == 0 || length > 64) {
-        BK4829_PrepareFSKReceive(); // Reiniciar RX por error
-        return 0;
+    uint8_t length = ((reg5d >> 8) & 0xFF) + 1;
+    
+    // Para FSK, a veces el chip devuelve la longitud configurada, no la real.
+    // Vamos a leer el buffer completo si la longitud reportada parece inválida.
+    if (length <= 1 || length > 64) {
+        length = 64; // Leer todo si el chip no lo reporta bien
     }
     
     // 3. Vaciar el FIFO a nuestro buffer (0x5F)
