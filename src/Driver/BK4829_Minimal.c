@@ -692,64 +692,41 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
     uint8_t target_len = g_fsk_test_configs[g_fsk_current_cfg].payload_len;
     bool use_drain = g_fsk_test_configs[g_fsk_current_cfg].use_drain_mode;
     
-    if (use_drain) {
-        // MODO 1: DRAIN (Esperar a SYNC y luego drenar)
-        if ((reg0c & 0x0002) == 0) { // Bit 1 = FSK_RX_SYNC
-            return 0; // No hay sync aún
-        }
-        
-        BK4829_WriteReg(0x02, 0x0000); // Evitar que el SYNC vuelva a disparar si se atora
-        uint8_t words_read = 0;
-        uint32_t timeout = g_SystemTick;
-        uint8_t words_expected = target_len / 2;
-        
-        while (words_read < words_expected) {
-            uint16_t status = BK4829_ReadReg(0x0C);
-            // Leer si el FIFO NO está vacío (Asumimos que Bit 9 0x0200 es FIFO_EMPTY)
-            if ((status & 0x0200) == 0) { 
-                uint16_t word = BK4829_ReadReg(0x5F);
-                out_buffer[words_read * 2] = word & 0xFF;
-                if ((words_read * 2 + 1) < target_len) {
-                    out_buffer[words_read * 2 + 1] = (word >> 8) & 0xFF;
-                }
-                words_read++;
-                timeout = g_SystemTick;
-            }
-            if (g_SystemTick - timeout > 200) {
-                break; // Timeout si no llegan más datos
-            }
-        }
-        
-        BK4829_WriteReg(0x59, 0x4028); // Clear RX FIFO
-        BK4829_WriteReg(0x59, 0x1028); // Volver a habilitar RX
-        
-        return words_read * 2;
-        
-    } else {
-        // MODO 2: SYNC + DELAY (Esperar a SYNC, hacer un delay para que lleguen todos, y leer)
-        if ((reg0c & 0x0002) == 0) { // Bit 1 = FSK_RX_SYNC
-            return 0; // Nada recibido aún
-        }
-        
-        BK4829_WriteReg(0x02, 0x0000); // Limpiar flags
-        
-        // 16 bytes a 1200bps toman ~106ms. Esperamos un poco más.
-        DelayMs(130); 
-        
-        // Vaciar el FIFO de golpe (esperamos que ya estén todos ahí)
-        for (uint8_t i = 0; i < target_len; i += 2) {
-            uint16_t word = BK4829_ReadReg(0x5F);
-            out_buffer[i] = word & 0xFF;
-            if (i + 1 < target_len) {
-                out_buffer[i + 1] = (word >> 8) & 0xFF;
-            }
-        }
-        
-        BK4829_WriteReg(0x59, 0x4028); // Clear RX FIFO
-        BK4829_WriteReg(0x59, 0x1028); // Volver a habilitar RX
-        
-        return target_len;
+    // Ya no usamos use_drain, usaremos una sola lógica infalible
+    if ((reg0c & 0x0002) == 0) { // Bit 1 = FSK_RX_SYNC
+        return 0; // Nada recibido aún
     }
+    
+    BK4829_WriteReg(0x02, 0x0000); // Limpiar flags
+    
+    uint8_t words_read = 0;
+    uint8_t words_expected = target_len / 2;
+    uint32_t start_time = g_SystemTick;
+    
+    while (words_read < words_expected) {
+        uint16_t word = BK4829_ReadReg(0x5F);
+        
+        if (word != 0xC400 && word != 0x0000) { 
+            // 0xC400 indica FIFO vacío en el BK4819
+            out_buffer[words_read * 2] = word & 0xFF;
+            if ((words_read * 2 + 1) < target_len) {
+                out_buffer[words_read * 2 + 1] = (word >> 8) & 0xFF;
+            }
+            words_read++;
+        } else {
+            // El FIFO está vacío temporalmente, esperar un poco (1200bps = ~8.3ms por byte)
+            DelayMs(4);
+        }
+        
+        if (g_SystemTick - start_time > 250) {
+            break; // Timeout de seguridad si el paquete se cortó a la mitad
+        }
+    }
+    
+    BK4829_WriteReg(0x59, 0x4028); // Clear RX FIFO
+    BK4829_WriteReg(0x59, 0x1028); // Volver a habilitar RX
+    
+    return words_read * 2;
 }
 
 // ==========================================
