@@ -86,7 +86,8 @@ static void VRFR_ProcessPayload(void) {
     // Verificar CRC
     char expectedCrc = CalcCRC(s_rxCmd, s_rxData);
     if (expectedCrc != s_rxCrc) {
-        strcpy(g_statusMsg, "CRC ERR");
+        // Mostrar lo que llegó para depurar
+        snprintf(g_statusMsg, sizeof(g_statusMsg), "CE:%s", s_rxCmd);
         VRFR_RenderDiagnostics();
         return;
     }
