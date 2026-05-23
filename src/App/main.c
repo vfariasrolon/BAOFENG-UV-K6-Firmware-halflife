@@ -142,6 +142,7 @@ int main(void)
     // ========================================================
     BK4829_Init(); 
     Auth_Init();
+    VRFR_Init(); // Arrancar FSK y variables
     // ========================================================
     
     // Forzar UI a Test Bench
