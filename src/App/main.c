@@ -163,18 +163,7 @@ int main(void)
         KEY_ScanTask();
         ExtraKeys_ScanTask();
         
-        // Mapeo Rápido de Teclas Locales hacia VRFR
-        if (g_keyScan.keyEvent != KEYID_NONE) {
-            uint8_t code = g_keyScan.keyEvent;
-            g_keyScan.keyEvent = KEYID_NONE; // Consumir evento
-            
-            if (code >= KEYID_1 && code <= KEYID_9) {
-                VRFR_ProcessLocalKey(code - KEYID_1 + 1);
-            } else if (code == KEYID_0 || code == KEYID_PTT) {
-                VRFR_ProcessLocalKey(0);
-            }
-        }
-        
+
         if(g_10msFlag) { App_10msTask(); }
         if(g_50msFlag) { App_50msTask(); }
         if(g_100msFlag) { App_100msTask(); }

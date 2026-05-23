@@ -73,7 +73,17 @@ extern void AppRunTask(void)
 {
     /* Despachador Minimalista de Eventos (FSM) */
     if (g_keyScan.keyEvent != KEYID_NONE) {
-        App_EventManager(g_keyScan.keyEvent);
+        uint8_t code = g_keyScan.keyEvent;
+        
+        // Mapeo Rápido de Teclas Locales hacia VRFR
+        if (code >= KEYID_1 && code <= KEYID_9) {
+            VRFR_ProcessLocalKey(code - KEYID_1 + 1);
+        } else if (code == KEYID_0 || code == KEYID_PTT) {
+            VRFR_ProcessLocalKey(0);
+        } else {
+            // Pasar al sistema operativo original solo si no lo consumimos
+            App_EventManager(code);
+        }
         
         /* Limpiar buffer de entrada para no repetir el procesamiento */
         g_keyScan.keyEvent = KEYID_NONE;
