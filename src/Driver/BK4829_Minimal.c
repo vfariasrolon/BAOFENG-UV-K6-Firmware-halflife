@@ -600,19 +600,18 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
     BK4829_TxEnable(true);
     DelayMs(50); 
     
-    // 2. Configurar el módem FSK para TX (Unificado FSK 1.2K)
-    BK4829_WriteReg(0x58, 0x00C1); // FSK Enable, FSK 1.2K TX/RX
-    BK4829_WriteReg(0x72, 0x3065); // Tone2 1200Hz para FSK
-    BK4829_WriteReg(0x70, 0x00E0); // Enable Tone2, Gain
-    BK4829_WriteReg(0x5D, ((length - 1) << 8)); // FSK Data Length 
+    // 2. Configurar el módem FSK para TX
+    BK4829_WriteReg(0x58, 0x00C1); // FSK Enable, FSK 1.2K
+    BK4829_WriteReg(0x72, 0x306A); // Frecuencia exacta 1200Hz OEM
+    BK4829_WriteReg(0x70, 0x0040); // IMPORTANTE: TX gain DEBE ser 0x0040 según OEM
     
-    // 3. Limpiar FIFO y sincronizar
-    BK4829_WriteReg(0x5A, 0x85CF); // Sync Byte 0, 1 (No usar 0x55 ni 0xAA aquí)
-    BK4829_WriteReg(0x5B, 0xAB45); // Sync Byte 2, 3
+    // 3. Limpiar FIFO y sincronizar (Valores exactos del OEM)
+    BK4829_WriteReg(0x5A, 0x85CF); 
+    BK4829_WriteReg(0x5B, 0xAB45); 
     BK4829_WriteReg(0x5C, 0xAA30); // Disable CRC nativo
     
-    BK4829_WriteReg(0x59, 0x8068); // Clear TX FIFO
-    BK4829_WriteReg(0x59, 0x0068); // Idle
+    BK4829_WriteReg(0x59, 0x8028); // Clear TX FIFO (Usando base 0x0028 como OEM)
+    BK4829_WriteReg(0x59, 0x0028); // Idle
     
     // 4. Llenar el FIFO FSK
     for (uint8_t i = 0; i < length; i += 2) {
@@ -623,16 +622,18 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
         BK4829_WriteReg(0x5F, word);
     }
     
-    // 5. Iniciar transmisión FSK
-    DelayMs(20);
-    BK4829_WriteReg(0x59, 0x0868); // Activar TX (Bit 11)
+    // El chip requiere configurar el Length DESPUÉS de llenar el FIFO en TX
+    BK4829_WriteReg(0x5D, ((length - 1) << 8)); // FSK Data Length 
+    
+    // 5. Iniciar transmisión FSK (Bit 11 = 0x0800)
+    BK4829_WriteReg(0x59, 0x0828); 
     
     // 6. Esperar a que termine
     uint16_t wait_ms = (length * 10) + 150;
     DelayMs(wait_ms);
     
     // 7. Apagar módem FSK de TX
-    BK4829_WriteReg(0x59, 0x0068);
+    BK4829_WriteReg(0x59, 0x0028);
     BK4829_SetAudioMute(true);
     
     // Preparar el módem para escuchar una respuesta
@@ -642,16 +643,16 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
 void BK4829_PrepareFSKReceive(void) {
     // 1. Apagar interrupciones y limpiar
     BK4829_WriteReg(0x3F, 0x0000);
-    BK4829_WriteReg(0x59, 0x0068);
+    BK4829_WriteReg(0x59, 0x0028);
     DelayMs(10);
     
-    // 2. Configurar el módem FSK para RX (Mismos ajustes que TX)
-    BK4829_WriteReg(0x58, 0x00C1); // FSK Enable, FSK 1.2K TX/RX
-    BK4829_WriteReg(0x72, 0x3065); // Tone2 1200Hz para FSK
-    BK4829_WriteReg(0x70, 0x00E0); // Enable Tone2, Gain
+    // 2. Configurar el módem FSK para RX 
+    BK4829_WriteReg(0x58, 0x00C1); // FSK Enable, FSK 1.2K
+    BK4829_WriteReg(0x72, 0x306A); // Frecuencia exacta 1200Hz OEM
+    BK4829_WriteReg(0x70, 0x0000); // IMPORTANTE: RX gain DEBE ser 0x0000 según OEM
     
-    BK4829_WriteReg(0x5A, 0x85CF); // Sync Byte 0, 1
-    BK4829_WriteReg(0x5B, 0xAB45); // Sync Byte 2, 3
+    BK4829_WriteReg(0x5A, 0x85CF); 
+    BK4829_WriteReg(0x5B, 0xAB45); 
     BK4829_WriteReg(0x5C, 0xAA30); // Disable CRC nativo
     
     // 3. Reactivar RX FSK
