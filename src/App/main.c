@@ -170,7 +170,7 @@ int main(void)
             
             if (code >= KEYID_1 && code <= KEYID_9) {
                 VRFR_ProcessLocalKey(code - KEYID_1 + 1);
-            } else if (code == KEYID_0) {
+            } else if (code == KEYID_0 || code == KEYID_PTT) {
                 VRFR_ProcessLocalKey(0);
             }
         }

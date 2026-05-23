@@ -247,6 +247,8 @@ void VRFR_ProcessLocalKey(uint8_t key) {
     } else if (key == 0) {
         // Usar tecla 0 (o PTT) para enviar payload de prueba
         VRFR_SendPayload("SNC", "12345678");
+        // Cancelar la máquina de estados para que NO haga reintentos automáticos
+        s_txState = TX_STATE_IDLE;
     }
 }
 
