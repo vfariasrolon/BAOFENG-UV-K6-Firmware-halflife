@@ -651,6 +651,8 @@ void BK4829_PrepareFSKReceive(void) {
     BK4829_WriteReg(0x72, 0x306A); // Frecuencia exacta 1200Hz OEM
     BK4829_WriteReg(0x70, 0x0000); // IMPORTANTE: RX gain DEBE ser 0x0000 según OEM
     
+    BK4829_WriteReg(0x5D, 0x0F00); // IMPORTANTE: RX espera EXACTAMENTE 16 bytes
+    
     BK4829_WriteReg(0x5A, 0x85CF); 
     BK4829_WriteReg(0x5B, 0xAB45); 
     BK4829_WriteReg(0x5C, 0xAA30); // Disable CRC nativo
@@ -659,8 +661,8 @@ void BK4829_PrepareFSKReceive(void) {
     BK4829_RxEnable(true);
     BK4829_WriteReg(0x3F, 0x2000); // Activar Interrupción FSK_RX_FINISHED (Bit 13 en BK4829)
     
-    BK4829_WriteReg(0x59, 0x4068); // Limpiar RX FIFO
-    BK4829_WriteReg(0x59, 0x1068); // Iniciar FSK RX (Bit 12, SIN Scramble)
+    BK4829_WriteReg(0x59, 0x4028); // Limpiar RX FIFO
+    BK4829_WriteReg(0x59, 0x1028); // Iniciar FSK RX (Bit 12, SIN Scramble)
 }
 
 extern void uartSendChar(unsigned char ch);

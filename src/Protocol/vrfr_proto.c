@@ -145,8 +145,13 @@ void VRFR_SendPayload(const char* cmd, const char* data) {
     // Formato FSK: CMD + DATA + CRC
     int pIdx = snprintf(packet, sizeof(packet), "%s%s%c", cmd, data, CalcCRC(cmd, data));
     
+    // Rellenar con ceros hasta alcanzar exactamente 16 bytes para alinear con el hardware FSK
+    for (int i = pIdx; i < 16; i++) {
+        packet[i] = 0;
+    }
+    
     // Transmitir en bloque
-    BK4829_SendFSKData((const uint8_t*)packet, pIdx);
+    BK4829_SendFSKData((const uint8_t*)packet, 16);
     
     strcpy(g_txRxState, "[RX] IDLE");
     VRFR_RenderDiagnostics();
