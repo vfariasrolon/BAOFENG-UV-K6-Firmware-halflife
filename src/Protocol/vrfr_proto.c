@@ -71,7 +71,7 @@ void VRFR_RenderDiagnostics(void) {
 // ==========================================
 // RECEPCIÓN (RX FSM)
 // ==========================================
-static char s_rxCmd[3];
+static char s_rxCmd[4];
 static char s_rxData[32];
 static char s_rxCrc;
 
@@ -107,6 +107,12 @@ static void VRFR_ProcessPayload(void) {
         strcpy(g_statusMsg, "LIG OFF");
         AudioEngine_PlayAck();
     } 
+    else if (strcmp(s_rxCmd, "CFG") == 0) {
+        // Al recibir el test de la matriz, actualizar status y responder ACK
+        strcpy(g_statusMsg, "RECIBIDO");
+        VRFR_SendPayload(VRFR_CMD_ACK, "0");
+        AudioEngine_PlayAck();
+    }
     else if (strcmp(s_rxCmd, VRFR_CMD_LIGHT_ON) == 0) {
         LightSystem_Set(1);
         VRFR_SendPayload(VRFR_CMD_ACK, "0");
