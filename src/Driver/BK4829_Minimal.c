@@ -5,6 +5,8 @@
 #include "../Driver/minifont.h"
 #include "../Driver/Sc5260.h"
 #include "../Driver/watchdog.h"
+#include "../Protocol/vrfr_proto.h"
+#include "../Core/TimeManager.h"
 
 void uartSendChar(unsigned char ch);
 
@@ -608,7 +610,7 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
     // 3. Limpiar FIFO y sincronizar (Valores exactos del OEM)
     BK4829_WriteReg(0x5A, 0x85CF); 
     BK4829_WriteReg(0x5B, 0xAB45); 
-    BK4829_WriteReg(0x5C, 0x5665); // Configuración FSK OEM (Habilita CRC nativo)
+    BK4829_WriteReg(0x5C, g_fsk_test_configs[g_fsk_current_cfg].crc_reg); // CRC Dinámico
     
     BK4829_WriteReg(0x59, 0x8028); // Clear TX FIFO (Usando base 0x0028 como OEM)
     BK4829_WriteReg(0x59, 0x0028); // Idle
@@ -651,11 +653,12 @@ void BK4829_PrepareFSKReceive(void) {
     BK4829_WriteReg(0x72, 0x306A); // Frecuencia exacta 1200Hz OEM
     BK4829_WriteReg(0x70, 0x0000); // IMPORTANTE: RX gain DEBE ser 0x0000 según OEM
     
-    BK4829_WriteReg(0x5D, 0x0B00); // IMPORTANTE: RX espera EXACTAMENTE 12 bytes (evita desbordar el FIFO de 16)
+    uint8_t target_len = g_fsk_test_configs[g_fsk_current_cfg].payload_len;
+    BK4829_WriteReg(0x5D, ((target_len - 1) << 8)); // Dinámico: RX espera EXACTAMENTE length bytes
     
     BK4829_WriteReg(0x5A, 0x85CF); 
     BK4829_WriteReg(0x5B, 0xAB45); 
-    BK4829_WriteReg(0x5C, 0x5665); // Configuración FSK OEM (Habilita CRC nativo)
+    BK4829_WriteReg(0x5C, g_fsk_test_configs[g_fsk_current_cfg].crc_reg); // CRC Dinámico
     
     // 3. Reactivar RX FSK
     BK4829_RxEnable(true);
@@ -686,30 +689,61 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
         last_reg0c = reg0c;
     }
     
-    // 1. Verificar si la interrupción de recepción FSK disparó
-    // En BK4829, la bandera de FSK RX Finished es el Bit 0 de 0x0C.
-    if ((reg0c & 0x0001) == 0) { 
-        return 0; // Nada recibido
-    }
+    uint8_t target_len = g_fsk_test_configs[g_fsk_current_cfg].payload_len;
+    bool use_drain = g_fsk_test_configs[g_fsk_current_cfg].use_drain_mode;
     
-    // Limpiar flag
-    BK4829_WriteReg(0x02, 0x0000);
-    
-    uint8_t length = 12; // Sabemos que transmitimos exactamente 12 bytes siempre
-    
-    // 3. Vaciar el FIFO a nuestro buffer (0x5F)
-    for (uint8_t i = 0; i < length; i += 2) {
-        uint16_t word = BK4829_ReadReg(0x5F);
-        out_buffer[i] = word & 0xFF;
-        if (i + 1 < length) {
-            out_buffer[i + 1] = (word >> 8) & 0xFF;
+    if (use_drain) {
+        // MODO 1: DRAIN (Extraer mientras haya datos, ignorar bit 0)
+        if ((reg0c & 0x0002) != 0) { 
+            return 0; // FIFO vacío
         }
+        
+        BK4829_WriteReg(0x02, 0x0000);
+        uint8_t words_read = 0;
+        uint32_t timeout = g_SystemTick;
+        uint8_t words_expected = target_len / 2;
+        
+        while (words_read < words_expected) {
+            uint16_t status = BK4829_ReadReg(0x0C);
+            if ((status & 0x0002) == 0) {
+                uint16_t word = BK4829_ReadReg(0x5F);
+                out_buffer[words_read * 2] = word & 0xFF;
+                out_buffer[words_read * 2 + 1] = (word >> 8) & 0xFF;
+                words_read++;
+                timeout = g_SystemTick;
+            }
+            if (g_SystemTick - timeout > 100) {
+                break;
+            }
+        }
+        
+        BK4829_WriteReg(0x59, 0x4028); // Clear RX FIFO
+        BK4829_WriteReg(0x59, 0x1028); // Volver a habilitar RX
+        
+        return words_read * 2;
+        
+    } else {
+        // MODO 2: BIT0 (Esperar a Finished)
+        if ((reg0c & 0x0001) == 0) { 
+            return 0; // Nada recibido aún
+        }
+        
+        BK4829_WriteReg(0x02, 0x0000); // Limpiar flag
+        
+        // Vaciar el FIFO de golpe
+        for (uint8_t i = 0; i < target_len; i += 2) {
+            uint16_t word = BK4829_ReadReg(0x5F);
+            out_buffer[i] = word & 0xFF;
+            if (i + 1 < target_len) {
+                out_buffer[i + 1] = (word >> 8) & 0xFF;
+            }
+        }
+        
+        BK4829_WriteReg(0x59, 0x4028); // Clear RX FIFO
+        BK4829_WriteReg(0x59, 0x1028); // Volver a habilitar RX
+        
+        return target_len;
     }
-    
-    // 4. Reiniciar módem FSK para la próxima recepción
-    BK4829_PrepareFSKReceive();
-    
-    return length;
 }
 
 // ==========================================

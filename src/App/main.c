@@ -179,10 +179,11 @@ int main(void)
             uint8_t code = g_keyScan.keyEvent;
             g_keyScan.keyEvent = KEYID_NONE; // Consumir evento
             
-            // KEYID_1 = Luz OFF, KEYID_2 = Luz ON, KEYID_3 = CNT++
-            if (code == KEYID_1) VRFR_ProcessLocalKey(1);
-            else if (code == KEYID_2) VRFR_ProcessLocalKey(2);
-            else if (code == KEYID_3) VRFR_ProcessLocalKey(3);
+            if (code >= KEYID_1 && code <= KEYID_9) {
+                VRFR_ProcessLocalKey(code - KEYID_1 + 1);
+            } else if (code == KEYID_0) {
+                VRFR_ProcessLocalKey(0);
+            }
         }
         
         if(g_10msFlag) { App_10msTask(); }

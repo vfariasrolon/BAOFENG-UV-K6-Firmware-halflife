@@ -10,6 +10,16 @@
 #define VRFR_CMD_CNT         "09"
 #define VRFR_CMD_ACK         "99"
 
+// Configuración Dinámica FSK
+typedef struct {
+    uint16_t crc_reg;      // 0xAA30 o 0x5665
+    uint8_t payload_len;   // 12 o 16
+    bool use_drain_mode;   // false = Bit0, true = Drenar
+} FSK_TestConfig_t;
+
+extern uint8_t g_fsk_current_cfg;
+extern const FSK_TestConfig_t g_fsk_test_configs[8];
+
 extern uint32_t g_remoteCounter;
 extern char g_lastRxData[32];
 extern char g_lastTxData[32];

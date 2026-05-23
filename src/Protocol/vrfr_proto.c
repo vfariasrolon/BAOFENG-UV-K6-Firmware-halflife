@@ -10,6 +10,19 @@
 #include <string.h>
 #include <stdlib.h>
 
+uint8_t g_fsk_current_cfg = 0; // Index 0-7
+
+const FSK_TestConfig_t g_fsk_test_configs[8] = {
+    {0xAA30, 16, false}, // 1: Len 16, CRC OFF, Wait BIT0
+    {0xAA30, 16, true},  // 2: Len 16, CRC OFF, Drain Manual
+    {0x5665, 16, false}, // 3: Len 16, CRC ON, Wait BIT0
+    {0x5665, 16, true},  // 4: Len 16, CRC ON, Drain Manual
+    {0xAA30, 12, false}, // 5: Len 12, CRC OFF, Wait BIT0
+    {0xAA30, 12, true},  // 6: Len 12, CRC OFF, Drain Manual
+    {0x5665, 12, false}, // 7: Len 12, CRC ON, Wait BIT0
+    {0x5665, 12, true}   // 8: Len 12, CRC ON, Drain Manual
+};
+
 uint32_t g_remoteCounter = 0;
 char g_lastRxData[32] = {0};
 char g_lastTxData[32] = {0};
@@ -37,8 +50,10 @@ void VRFR_RenderDiagnostics(void) {
 
     SC5260_ClearArea(0, 0, 128, 64, 0); // Clear background
     
-    // Línea 1: TX/RX Status
-    UI_DrawText(0, 16, g_txRxState, SCALE_NORMAL);
+    // Línea 1: TX/RX Status + Configuración FSK
+    char stateBuf[32];
+    snprintf(stateBuf, sizeof(stateBuf), "%s [CFG: %d]", g_txRxState, g_fsk_current_cfg + 1);
+    UI_DrawText(0, 16, stateBuf, SCALE_NORMAL);
     
     // Línea 2: DTMF Sent/Received
     char dtmfBuf[32];
@@ -145,14 +160,15 @@ void VRFR_SendPayload(const char* cmd, const char* data) {
     // Formato FSK: CMD + DATA + CRC
     int pIdx = snprintf(packet, sizeof(packet), "%s%s%c", cmd, data, CalcCRC(cmd, data));
     
-    // Rellenar con ceros hasta alcanzar exactamente 12 bytes para evitar desbordar el hardware FIFO (que mide 16)
-    // cuando el chip añade sus 2 bytes de CRC nativo.
-    for (int i = pIdx; i < 12; i++) {
+    uint8_t target_len = g_fsk_test_configs[g_fsk_current_cfg].payload_len;
+    
+    // Rellenar con ceros hasta alcanzar exactamente el tamaño objetivo
+    for (int i = pIdx; i < target_len; i++) {
         packet[i] = 0;
     }
     
     // Transmitir en bloque
-    BK4829_SendFSKData((const uint8_t*)packet, 12);
+    BK4829_SendFSKData((const uint8_t*)packet, target_len);
     
     strcpy(g_txRxState, "[RX] IDLE");
     VRFR_RenderDiagnostics();
@@ -219,13 +235,18 @@ void VRFR_Tick(void) {
 }
 
 void VRFR_ProcessLocalKey(uint8_t key) {
-    // Ejemplo de llamadas locales desde botones
-    if (key == 1) {
-        VRFR_SendPayload(VRFR_CMD_LIGHT_OFF, "0");
-    } else if (key == 2) {
-        VRFR_SendPayload(VRFR_CMD_LIGHT_ON, "0");
-    } else if (key == 3) {
-        VRFR_SendPayload(VRFR_CMD_CNT, "0");
+    if (key >= 1 && key <= 8) {
+        // Seleccionar configuración de matriz (1 al 8)
+        g_fsk_current_cfg = key - 1;
+        
+        // Reiniciar módem con la nueva configuración
+        BK4829_PrepareFSKReceive();
+        
+        // Actualizar UI
+        VRFR_RenderDiagnostics();
+    } else if (key == 0) {
+        // Usar tecla 0 (o PTT) para enviar payload de prueba
+        VRFR_SendPayload("SNC", "12345678");
     }
 }
 
