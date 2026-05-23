@@ -608,7 +608,7 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
     // 3. Limpiar FIFO y sincronizar (Valores exactos del OEM)
     BK4829_WriteReg(0x5A, 0x85CF); 
     BK4829_WriteReg(0x5B, 0xAB45); 
-    BK4829_WriteReg(0x5C, 0xAA30); // Disable CRC nativo
+    BK4829_WriteReg(0x5C, 0x5665); // Habilitar CRC nativo (Valor por defecto del BK4829)
     
     BK4829_WriteReg(0x59, 0x8028); // Clear TX FIFO (Usando base 0x0028 como OEM)
     BK4829_WriteReg(0x59, 0x0028); // Idle
@@ -655,7 +655,7 @@ void BK4829_PrepareFSKReceive(void) {
     
     BK4829_WriteReg(0x5A, 0x85CF); 
     BK4829_WriteReg(0x5B, 0xAB45); 
-    BK4829_WriteReg(0x5C, 0xAA30); // Disable CRC nativo
+    BK4829_WriteReg(0x5C, 0x5665); // Habilitar CRC nativo (Valor por defecto)
     
     // 3. Reactivar RX FSK
     BK4829_RxEnable(true);
@@ -686,9 +686,11 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
         last_reg0c = reg0c;
     }
     
-    // 1. Verificar si la interrupción de recepción FSK disparó
-    // En BK4829, la bandera de FSK RX es el Bit 0 del registro 0x0C
-    if ((reg0c & 0x0001) == 0) {
+    // 1. Verificar si la interrupción de recepción FSK disparó o el FIFO está casi lleno
+    // En BK4829, la bandera de FSK RX Finished es el Bit 0 de 0x0C.
+    // Pero si recibimos 16 bytes, el FIFO (que es pequeño) se llena y activa Bit 1 (Almost Full)
+    // quedándose atascado si no lo leemos.
+    if ((reg0c & 0x0003) == 0) { // Check Bit 0 or Bit 1
         return 0; // Nada recibido
     }
     
