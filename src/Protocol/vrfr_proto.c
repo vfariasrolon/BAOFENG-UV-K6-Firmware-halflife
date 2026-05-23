@@ -56,18 +56,8 @@ void VRFR_RenderDiagnostics(void) {
 // ==========================================
 // RECEPCIÓN (RX FSM)
 // ==========================================
-typedef enum {
-    RX_STATE_IDLE,
-    RX_STATE_CMD1,
-    RX_STATE_CMD2,
-    RX_STATE_DATA,
-    RX_STATE_CRC
-} VRFR_RxState_Enum;
-
-static VRFR_RxState_Enum s_rxState = RX_STATE_IDLE;
 static char s_rxCmd[3];
 static char s_rxData[32];
-static uint8_t s_rxDataIdx = 0;
 static char s_rxCrc;
 
 static uint8_t CalcCRC(const char* cmd, const char* data) {
@@ -124,43 +114,6 @@ static void VRFR_ProcessPayload(void) {
     VRFR_RenderDiagnostics();
 }
 
-void VRFR_HandleIncomingTone(char tone) {
-    if (tone == 'A') { // START_TOKEN
-        s_rxState = RX_STATE_CMD1;
-        s_rxDataIdx = 0;
-        memset(s_rxData, 0, sizeof(s_rxData));
-        return;
-    }
-
-    switch (s_rxState) {
-        case RX_STATE_IDLE:
-            break;
-        case RX_STATE_CMD1:
-            s_rxCmd[0] = tone;
-            s_rxState = RX_STATE_CMD2;
-            break;
-        case RX_STATE_CMD2:
-            s_rxCmd[1] = tone;
-            s_rxCmd[2] = '\0';
-            s_rxState = RX_STATE_DATA;
-            break;
-        case RX_STATE_DATA:
-            if (tone == 'D') { // END_TOKEN for empty payload
-                s_rxCrc = '0'; // default
-                VRFR_ProcessPayload();
-                s_rxState = RX_STATE_IDLE;
-            } else if (tone == 'C') {
-                // Separator, ignore
-            } else {
-                s_rxData[s_rxDataIdx++] = tone;
-                // Asumimos que el último caracter antes de D es CRC
-                // Esto se maneja viendo cuándo llega D
-            }
-            break;
-        case RX_STATE_CRC:
-            break;
-    }
-}
 
 // ==========================================
 // ESTADOS DE TRANSMISIÓN Y TIMEOUT
@@ -179,39 +132,21 @@ static char s_txLastData[32] = {0};
 
 void VRFR_SendPayload(const char* cmd, const char* data) {
     char packet[64] = {0};
-    int pIdx = 0;
     
     strcpy(s_txLastCmd, cmd);
     strcpy(s_txLastData, data);
     
     strcpy(g_statusMsg, "TXING...");
-    strcpy(g_txRxState, "[TX] HOP+");
+    strcpy(g_txRxState, "[TX] FSK");
     snprintf(g_lastTxData, sizeof(g_lastTxData), "%s:%s", cmd, data);
     g_lastRxData[0] = '\0'; // Limpiar rx display
     VRFR_RenderDiagnostics();
     
-    // Formato: A CMD DATA CRC D
-    packet[pIdx++] = 'A';
-    packet[pIdx++] = cmd[0];
-    packet[pIdx++] = cmd[1];
+    // Formato FSK: CMD + DATA + CRC
+    int pIdx = snprintf(packet, sizeof(packet), "%s%s%c", cmd, data, CalcCRC(cmd, data));
     
-    // Copiar DATA e inyectar 'C' cada 4 dígitos
-    int chunk = 0;
-    for (int i = 0; data[i] != '\0'; i++) {
-        if (chunk == 4) {
-            packet[pIdx++] = 'C';
-            chunk = 0;
-        }
-        packet[pIdx++] = data[i];
-        chunk++;
-    }
-    
-    // Checksum
-    packet[pIdx++] = CalcCRC(cmd, data);
-    packet[pIdx++] = 'D';
-    packet[pIdx] = '\0';
-    
-    BK4829_SendDTMFStringRF(packet);
+    // Transmitir en bloque
+    BK4829_SendFSKData((const uint8_t*)packet, pIdx);
     
     strcpy(g_txRxState, "[RX] IDLE");
     VRFR_RenderDiagnostics();
@@ -225,7 +160,6 @@ void VRFR_SendPayload(const char* cmd, const char* data) {
     }
 }
 
-// Reemplazar VRFR_Tick original por uno que también gestione el timeout
 void VRFR_Tick(void) {
     // 1. Manejo de Timeout de TX
     if (s_txState == TX_STATE_WAIT_ACK) {
@@ -246,29 +180,34 @@ void VRFR_Tick(void) {
         }
     }
 
-    // 2. Recepción de DTMF
-    char c = BK4829_ReadDTMFDigit();
-    if (c != '\0') {
-        if (s_rxState == RX_STATE_DATA && c == 'D') {
-            if (s_rxDataIdx > 0) {
-                s_rxCrc = s_rxData[s_rxDataIdx - 1];
-                s_rxData[s_rxDataIdx - 1] = '\0'; 
-            } else {
-                s_rxCrc = '0';
-            }
-            VRFR_ProcessPayload();
-            s_rxState = RX_STATE_IDLE;
-            
-            // Si recibimos cualquier trama válida (que processpayload ya verificó), 
-            // asumimos que nos están contestando (o enviando un comando).
-            // Si estábamos esperando ACK y llegó, lo manejamos.
-            if (strcmp(g_lastRxData, VRFR_CMD_ACK) == 0 || strstr(g_statusMsg, "ACK OK") != NULL) {
-                s_txState = TX_STATE_IDLE;
-                s_txRetries = 0;
-            }
-            
+    // 2. Recepción de FSK
+    uint8_t fskBuf[64] = {0};
+    uint8_t len = BK4829_GetFSKData(fskBuf);
+    
+    if (len >= 3) { // min length: CMD (2) + CRC (1)
+        // El último byte es CRC
+        s_rxCrc = fskBuf[len - 1];
+        
+        // Extraer CMD (2 bytes)
+        s_rxCmd[0] = fskBuf[0];
+        s_rxCmd[1] = fskBuf[1];
+        s_rxCmd[2] = '\0';
+        
+        // Extraer Data
+        uint8_t dataLen = len - 3;
+        if (dataLen > 0 && dataLen < sizeof(s_rxData)) {
+            memcpy(s_rxData, &fskBuf[2], dataLen);
+            s_rxData[dataLen] = '\0';
         } else {
-            VRFR_HandleIncomingTone(c);
+            s_rxData[0] = '\0';
+        }
+        
+        VRFR_ProcessPayload();
+        
+        // Limpiar estado de TX si llegó una respuesta válida
+        if (strcmp(g_lastRxData, VRFR_CMD_ACK) == 0 || strstr(g_statusMsg, "ACK OK") != NULL) {
+            s_txState = TX_STATE_IDLE;
+            s_txRetries = 0;
         }
     }
 }

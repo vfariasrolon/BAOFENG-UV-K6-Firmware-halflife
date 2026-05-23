@@ -6,6 +6,8 @@
 #include "../Driver/Sc5260.h"
 #include "../Driver/watchdog.h"
 
+void uartSendChar(unsigned char ch);
+
 uint32_t g_test_freq = 43305000;
 
 // ==========================================
@@ -587,133 +589,104 @@ void BK4829_PlayDTMFString(const char* digits) {
     BK4829_SetAudioMute(true);
 }
 
-void BK4829_SendDTMF(uint16_t tone1_hz, uint16_t tone2_hz) {
-    // Secuencia exacta de Rfic_EnterDTMFMode + Rfic_SetDtmfFreq del src_sucio
-    // Las frecuencias DEBEN convertirse al formato del registro BK4829
-    
-    // 1. Modo TXTONE (portadora TX + modulación de tono activa, BK4829 nativo)
-    BK4829_WriteReg(0x30, 0x0003);
-    
-    // 2. Threshold DTMF
-    BK4829_WriteReg(0x24, 0x807F | (20 << 7));
-    
-    // 3. Gain máximo para ambos tonos
-    BK4829_WriteReg(0x70, 0xE0E0);
-    
-    // 4. Frecuencias convertidas al formato BK4829 (NO Hz crudos)
-    BK4829_WriteReg(0x71, BK4829_HZ_TO_REG(tone1_hz));
-    BK4829_WriteReg(0x72, BK4829_HZ_TO_REG(tone2_hz));
-    
-    // 5. Habilitar salida DTMF interna
-    BK4829_WriteReg(0x3F, 0x0800);
-}
+// ==========================================
+// MÓDEM FSK NATIVO (1200 bps)
+// ==========================================
 
-void BK4829_StopDTMF(bool returnToRx) {
-    // 1. Deshabilitar salida DTMF
-    BK4829_WriteReg(0x3F, 0x0000);
+void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
+    if (length > 64) length = 64; // Límite de seguridad
     
-    // 2. Limpiar threshold
-    uint16_t reg24 = BK4829_ReadReg(0x24) & 0xFFDF;
-    BK4829_WriteReg(0x24, reg24);
-    
-    // 3. Restaurar Gain LNA/IF
-    BK4829_WriteReg(0x70, 0x00E0);
-    
-    // 4. CRITICO: Volver a modo RX solo si se indica
-    if (returnToRx) {
-        BK4829_RxEnable(true);
-    }
-}
-
-void BK4829_SendDTMFStringRF(const char* digits) {
-    // Habilitar transmisión física (PA y RF Switch)
+    // 1. Activar TX y PA
     BK4829_TxEnable(true);
-    DelayMs(50); // Esperar estabilización del PA
+    DelayMs(50); // PA settle time
     
-    while (*digits) {
-        uint16_t t1 = 0, t2 = 0;
-        char c = *digits;
-        
-        if (c == '1') { t1 = 697; t2 = 1209; }
-        else if (c == '2') { t1 = 697; t2 = 1336; }
-        else if (c == '3') { t1 = 697; t2 = 1477; }
-        else if (c == 'A') { t1 = 697; t2 = 1633; }
-        else if (c == '4') { t1 = 770; t2 = 1209; }
-        else if (c == '5') { t1 = 770; t2 = 1336; }
-        else if (c == '6') { t1 = 770; t2 = 1477; }
-        else if (c == 'B') { t1 = 770; t2 = 1633; }
-        else if (c == '7') { t1 = 852; t2 = 1209; }
-        else if (c == '8') { t1 = 852; t2 = 1336; }
-        else if (c == '9') { t1 = 852; t2 = 1477; }
-        else if (c == 'C') { t1 = 852; t2 = 1633; }
-        else if (c == '*') { t1 = 941; t2 = 1209; }
-        else if (c == '0') { t1 = 941; t2 = 1336; }
-        else if (c == '#') { t1 = 941; t2 = 1477; }
-        else if (c == 'D') { t1 = 941; t2 = 1633; }
-        
-        if (t1 != 0 && t2 != 0) {
-            BK4829_SendDTMF(t1, t2); // Inicia modulación RF
-            DelayMs(80); // 80ms de tono
-            BK4829_StopDTMF(false); // Detener tono pero MANTENER TX
-            DelayMs(80); // 80ms de pausa de portadora muda
-        }
-        digits++;
-    }
-}
+    // 2. Configurar el módem FSK para TX
+    BK4829_WriteReg(0x58, 0x37C3); // FSK Enable, 1200 TX
+    BK4829_WriteReg(0x72, 0x3065); // Tone2 1200Hz para FSK
+    BK4829_WriteReg(0x70, 0x00E0); // Enable Tone2, Gain
+    BK4829_WriteReg(0x5D, (length << 8)); // FSK Data Length
     
-static uint16_t reg_shadow[128];
-static bool shadow_initialized = false;
-
-void BK4829_PollRegisterDiff(void) {
-    if (!shadow_initialized) {
-        for (uint8_t i = 0; i < 128; i++) {
-            reg_shadow[i] = BK4829_ReadReg(i);
+    // 3. Limpiar FIFO y sincronizar
+    BK4829_WriteReg(0x59, 0x8068); 
+    BK4829_WriteReg(0x59, 0x0068); 
+    
+    // Sync bytes opcionales para mayor estabilidad en RX (2 bytes = 0x5555)
+    BK4829_WriteReg(0x5A, 0x5555); 
+    BK4829_WriteReg(0x5B, 0x55AA);
+    BK4829_WriteReg(0x5C, 0xAA30); // Desactivar CRC nativo (lo hacemos nosotros por software)
+    
+    // 4. Llenar el FIFO FSK (Registro 0x5F, se hace de a 16-bits)
+    // Agrupamos los bytes de a pares
+    for (uint8_t i = 0; i < length; i += 2) {
+        uint16_t word = pData[i];
+        if (i + 1 < length) {
+            word |= (pData[i + 1] << 8);
         }
-        shadow_initialized = true;
-        return;
+        BK4829_WriteReg(0x5F, word);
     }
     
-    for (uint8_t i = 0; i < 128; i++) {
-        uint16_t val = BK4829_ReadReg(i);
-        if (val != reg_shadow[i]) {
-            // Ignorar registros súper volátiles (ej. RSSI, ruido)
-            if (i == 0x67 || i == 0x69 || i == 0x0F) {
-                reg_shadow[i] = val;
-                continue;
-            }
-            
-            uartSendChar('\n');
-            uartSendChar('C');
-            uartSendChar('H');
-            uartSendChar('G');
-            uartSendChar(' ');
-            uartSendChar("0123456789ABCDEF"[(i >> 4) & 0xF]);
-            uartSendChar("0123456789ABCDEF"[i & 0xF]);
-            uartSendChar(':');
-            uartSendChar("0123456789ABCDEF"[(reg_shadow[i] >> 12) & 0xF]);
-            uartSendChar("0123456789ABCDEF"[(reg_shadow[i] >> 8) & 0xF]);
-            uartSendChar("0123456789ABCDEF"[(reg_shadow[i] >> 4) & 0xF]);
-            uartSendChar("0123456789ABCDEF"[reg_shadow[i] & 0xF]);
-            uartSendChar('-');
-            uartSendChar('>');
-            uartSendChar("0123456789ABCDEF"[(val >> 12) & 0xF]);
-            uartSendChar("0123456789ABCDEF"[(val >> 8) & 0xF]);
-            uartSendChar("0123456789ABCDEF"[(val >> 4) & 0xF]);
-            uartSendChar("0123456789ABCDEF"[val & 0xF]);
-            uartSendChar('\n');
-            
-            reg_shadow[i] = val;
-        }
-    }
+    // 5. Iniciar transmisión FSK (Preamble + Data)
+    DelayMs(20);
+    BK4829_WriteReg(0x59, 0x0868); // Disparar FSK TX
+    
+    // 6. Esperar a que termine (aprox 1.6ms por byte + overhead)
+    // Simplificado usando un retardo fijo basado en la longitud
+    uint16_t wait_ms = (length * 10) + 150;
+    DelayMs(wait_ms);
+    
+    // 7. Apagar módem FSK y retornar a Mute/RX
+    BK4829_WriteReg(0x59, 0x0068);
+    BK4829_WriteReg(0x70, 0x0000);
+    BK4829_WriteReg(0x58, 0x0000);
+    
+    BK4829_SetAudioMute(true);
 }
 
-char BK4829_ReadDTMFDigit(void) {
-    BK4829_PollRegisterDiff();
+void BK4829_PrepareFSKReceive(void) {
+    // 1. Apagar interrupciones y limpiar
+    BK4829_WriteReg(0x3F, 0x0000);
+    BK4829_WriteReg(0x59, 0x0068);
+    DelayMs(10);
     
-    // Antiguo polling (desactivado para dejar que el Differ trabaje limpio)
-    // uint16_t reg0c = BK4829_ReadReg(0x0C);
-    // ...
-    return '\0';
+    // 2. Reactivar RX FSK
+    BK4829_RxEnable(true);
+    BK4829_WriteReg(0x3F, 0x0008); // Activar Interrupción FSK_RX_FINISHED (Bit 3 en BK4819/29)
+    
+    BK4829_WriteReg(0x59, 0x4068); // Limpiar RX FIFO
+    BK4829_WriteReg(0x59, 0x3068); // Iniciar FSK RX
+}
+
+uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
+    // 1. Verificar si la interrupción de recepción FSK disparó (Bit 3)
+    uint16_t reg0c = BK4829_ReadReg(0x0C);
+    if ((reg0c & 0x0008) == 0) {
+        return 0; // Nada recibido
+    }
+    
+    // Limpiar flag
+    BK4829_WriteReg(0x02, 0x0000);
+    
+    // 2. Leer la longitud del payload recibido (0x5D bajo)
+    uint16_t reg5d = BK4829_ReadReg(0x5D);
+    uint8_t length = reg5d & 0x00FF;
+    if (length == 0 || length > 64) {
+        BK4829_PrepareFSKReceive(); // Reiniciar RX por error
+        return 0;
+    }
+    
+    // 3. Vaciar el FIFO a nuestro buffer (0x5F)
+    for (uint8_t i = 0; i < length; i += 2) {
+        uint16_t word = BK4829_ReadReg(0x5F);
+        out_buffer[i] = word & 0xFF;
+        if (i + 1 < length) {
+            out_buffer[i + 1] = (word >> 8) & 0xFF;
+        }
+    }
+    
+    // 4. Reiniciar módem FSK para la próxima recepción
+    BK4829_PrepareFSKReceive();
+    
+    return length;
 }
 
 // ==========================================
@@ -748,25 +721,19 @@ void BK4829_Test_Carrier5s(void) {
 }
 
 void BK4829_Test_DTMF_RF(void) {
-    // 1. Abrir transmisión física (PA)
-    BK4829_TxEnable(true);
-    BK4829_TestBench_UpdateStatus(true);
+    // 1. Mostrar UI
+    UI_ClearLine(16);
+    UI_DrawText(0, 16, "[TEST] FSK TX   ", SCALE_TINY);
+    LCD_UpdateFullScreen();
     
-    // 2. Iniciar modulación DTMF (usamos 941 y 1336 que son detectables fácilmente)
-    BK4829_SendDTMF(941, 1336);
+    // 2. Iniciar modulación FSK
+    uint8_t test_data[] = {'T', 'E', 'S', 'T'};
+    BK4829_SendFSKData(test_data, sizeof(test_data));
     
-    // 3. Transmitir el tono durante 3 segundos
-    for(int i = 0; i < 30; i++) {
-        DelayMs(100);
-        WDT_Refresh();
-    }
-    
-    // 4. Detener modulación
-    BK4829_StopDTMF(true);
-    
-    // 5. Apagar transmisión (PA) y volver a RX
-    BK4829_TxEnable(false);
-    BK4829_TestBench_UpdateStatus(false);
+    // 3. Volver a IDLE
+    UI_ClearLine(16);
+    UI_DrawText(0, 16, "[TEST] IDLE     ", SCALE_TINY);
+    LCD_UpdateFullScreen();
 }
 
 // ==========================================

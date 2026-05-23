@@ -18,11 +18,11 @@ void BK4829_RxEnable(bool enable);
 void BK4829_SetAudioMute(bool mute);
 void BK4829_PlayLocalBeep(uint16_t freq_hz, uint16_t duration_ms);
 void BK4829_PlayLocalDTMF(uint16_t tone1_hz, uint16_t tone2_hz, uint16_t duration_ms);
-void BK4829_PlayDTMFString(const char* digits);
-void BK4829_SendDTMF(uint16_t tone1_hz, uint16_t tone2_hz);
-void BK4829_StopDTMF(bool returnToRx);
-void BK4829_SendDTMFStringRF(const char* digits);
-char BK4829_ReadDTMFDigit(void);
+
+// Módem FSK Nativo
+void BK4829_SendFSKData(const uint8_t* pData, uint8_t length);
+void BK4829_PrepareFSKReceive(void);
+uint8_t BK4829_GetFSKData(uint8_t* out_buffer);
 void BK4829_ForceOpenAudio(void);
 // Lectura de Registros (Diagnóstico)
 uint16_t BK4829_ReadReg(uint8_t devAddr);
