@@ -608,7 +608,7 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
     // 3. Limpiar FIFO y sincronizar (Valores exactos del OEM)
     BK4829_WriteReg(0x5A, 0x85CF); 
     BK4829_WriteReg(0x5B, 0xAB45); 
-    BK4829_WriteReg(0x5C, 0xAA30); // Deshabilitar CRC nativo
+    BK4829_WriteReg(0x5C, 0x5665); // Configuración FSK OEM (Habilita CRC nativo)
     
     BK4829_WriteReg(0x59, 0x8028); // Clear TX FIFO (Usando base 0x0028 como OEM)
     BK4829_WriteReg(0x59, 0x0028); // Idle
@@ -651,11 +651,11 @@ void BK4829_PrepareFSKReceive(void) {
     BK4829_WriteReg(0x72, 0x306A); // Frecuencia exacta 1200Hz OEM
     BK4829_WriteReg(0x70, 0x0000); // IMPORTANTE: RX gain DEBE ser 0x0000 según OEM
     
-    BK4829_WriteReg(0x5D, 0x0F00); // IMPORTANTE: RX espera EXACTAMENTE 16 bytes
+    BK4829_WriteReg(0x5D, 0x0B00); // IMPORTANTE: RX espera EXACTAMENTE 12 bytes (evita desbordar el FIFO de 16)
     
     BK4829_WriteReg(0x5A, 0x85CF); 
     BK4829_WriteReg(0x5B, 0xAB45); 
-    BK4829_WriteReg(0x5C, 0xAA30); // Deshabilitar CRC nativo
+    BK4829_WriteReg(0x5C, 0x5665); // Configuración FSK OEM (Habilita CRC nativo)
     
     // 3. Reactivar RX FSK
     BK4829_RxEnable(true);
@@ -695,7 +695,7 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
     // Limpiar flag
     BK4829_WriteReg(0x02, 0x0000);
     
-    uint8_t length = 16; // Sabemos que transmitimos exactamente 16 bytes siempre
+    uint8_t length = 12; // Sabemos que transmitimos exactamente 12 bytes siempre
     
     // 3. Vaciar el FIFO a nuestro buffer (0x5F)
     for (uint8_t i = 0; i < length; i += 2) {
