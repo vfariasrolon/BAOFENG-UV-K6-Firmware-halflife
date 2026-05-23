@@ -155,18 +155,7 @@ int main(void)
     TimeManager_AddTask(VRFR_Tick, 10); // Lógica RX/TX DTMF
     TimeManager_AddTask(AudioEngine_Task, 1); // Gestor de secuencias de audio
     
-#ifdef RADIO_A
-    // Retardo inicial para dar tiempo a encender el Radio B
-    uint32_t wait_start = g_SystemTick;
-    while((g_SystemTick - wait_start) < 2000) { WDT_Refresh(); }
-    
-    // Radio A genera el Handshake
-    char randStr[16];
-    uint32_t seed = g_SystemTick; // Usar el tiempo como seed
-    snprintf(randStr, sizeof(randStr), "%lu", (unsigned long)VRFR_Xorshift32(&seed));
-    VRFR_SendPayload(VRFR_CMD_HANDSHAKE, randStr);
-#endif
-
+    // El envío FSK automático se ha desactivado para permitir pruebas manuales con la Matriz FSK.
     while(1)
     {
         TimeManager_RunScheduler();
