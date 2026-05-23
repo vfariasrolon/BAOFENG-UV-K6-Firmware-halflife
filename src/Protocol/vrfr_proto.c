@@ -50,14 +50,14 @@ void VRFR_RenderDiagnostics(void) {
 
     SC5260_ClearArea(0, 0, 128, 64, 0); // Clear background
     
-    // Línea 1: TX/RX Status + Configuración FSK
+    // Línea 1: Configuración FSK + TX/RX Status
     char stateBuf[32];
-    snprintf(stateBuf, sizeof(stateBuf), "%s [CFG: %d]", g_txRxState, g_fsk_current_cfg + 1);
+    snprintf(stateBuf, sizeof(stateBuf), "C:%d %s", g_fsk_current_cfg + 1, g_txRxState);
     UI_DrawText(0, 16, stateBuf, SCALE_NORMAL);
     
     // Línea 2: DTMF Sent/Received
     char dtmfBuf[32];
-    snprintf(dtmfBuf, sizeof(dtmfBuf), "DTMF: %s", g_lastTxData[0] ? g_lastTxData : (g_lastRxData[0] ? g_lastRxData : "---"));
+    snprintf(dtmfBuf, sizeof(dtmfBuf), "D:%s", g_lastTxData[0] ? g_lastTxData : (g_lastRxData[0] ? g_lastRxData : "---"));
     UI_DrawText(0, 32, dtmfBuf, SCALE_NORMAL);
     
     // Línea 3: Status/Audio
@@ -245,9 +245,16 @@ void VRFR_ProcessLocalKey(uint8_t key) {
         // Actualizar UI
         VRFR_RenderDiagnostics();
     } else if (key == 0) {
-        // Usar tecla 0 (o PTT) para enviar payload de prueba
-        VRFR_SendPayload("SNC", "12345678");
-        // Cancelar la máquina de estados para que NO haga reintentos automáticos
+        // Enviar payload de prueba especificando el modo
+        char testPayload[16];
+        snprintf(testPayload, sizeof(testPayload), "TEST%d", g_fsk_current_cfg + 1);
+        
+        // Limpiar mensajes de error previos
+        strcpy(g_statusMsg, "ENVIADO");
+        
+        VRFR_SendPayload("CFG", testPayload);
+        
+        // Cancelar la máquina de estados
         s_txState = TX_STATE_IDLE;
     }
 }
