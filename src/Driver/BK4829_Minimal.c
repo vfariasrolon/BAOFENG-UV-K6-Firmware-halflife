@@ -594,29 +594,27 @@ void BK4829_PlayDTMFString(const char* digits) {
 // ==========================================
 
 void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
-    if (length > 64) length = 64; // Límite de seguridad
+    if (length > 64) length = 64; 
     
     // 1. Activar TX y PA
     BK4829_TxEnable(true);
-    DelayMs(50); // PA settle time
+    DelayMs(50); 
     
-    // 2. Configurar el módem FSK para TX
-    BK4829_WriteReg(0x58, 0x37C3); // FSK Enable, 1200 TX
+    // 2. Configurar el módem FSK para TX (Unificado FSK 1.2K)
+    BK4829_WriteReg(0x58, 0x00C1); // FSK Enable, FSK 1.2K TX/RX
     BK4829_WriteReg(0x72, 0x3065); // Tone2 1200Hz para FSK
     BK4829_WriteReg(0x70, 0x00E0); // Enable Tone2, Gain
-    BK4829_WriteReg(0x5D, ((length - 1) << 8)); // FSK Data Length (El chip usa length-1)
+    BK4829_WriteReg(0x5D, ((length - 1) << 8)); // FSK Data Length 
     
     // 3. Limpiar FIFO y sincronizar
-    BK4829_WriteReg(0x59, 0x8068); 
-    BK4829_WriteReg(0x59, 0x0068); 
+    BK4829_WriteReg(0x5A, 0x5555); // Sync Byte 0, 1
+    BK4829_WriteReg(0x5B, 0x55AA); // Sync Byte 2, 3
+    BK4829_WriteReg(0x5C, 0xAA30); // Disable CRC nativo
     
-    // Sync bytes opcionales para mayor estabilidad en RX (2 bytes = 0x5555)
-    BK4829_WriteReg(0x5A, 0x5555); 
-    BK4829_WriteReg(0x5B, 0x55AA);
-    BK4829_WriteReg(0x5C, 0xAA30); // Desactivar CRC nativo (lo hacemos nosotros por software)
+    BK4829_WriteReg(0x59, 0x8068); // Clear TX FIFO
+    BK4829_WriteReg(0x59, 0x0068); // Idle
     
-    // 4. Llenar el FIFO FSK (Registro 0x5F, se hace de a 16-bits)
-    // Agrupamos los bytes de a pares
+    // 4. Llenar el FIFO FSK
     for (uint8_t i = 0; i < length; i += 2) {
         uint16_t word = pData[i];
         if (i + 1 < length) {
@@ -625,20 +623,19 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
         BK4829_WriteReg(0x5F, word);
     }
     
-    // 5. Iniciar transmisión FSK (Preamble + Data)
+    // 5. Iniciar transmisión FSK
     DelayMs(20);
-    BK4829_WriteReg(0x59, 0x0868); // Disparar FSK TX
+    BK4829_WriteReg(0x59, 0x0868); // Activar TX (Bit 11)
     
-    // 6. Esperar a que termine (aprox 1.6ms por byte + overhead)
-    // Simplificado usando un retardo fijo basado en la longitud
+    // 6. Esperar a que termine
     uint16_t wait_ms = (length * 10) + 150;
     DelayMs(wait_ms);
     
-    // 7. Apagar módem FSK de TX y retornar a modo Escucha (RX) FSK
+    // 7. Apagar módem FSK de TX
     BK4829_WriteReg(0x59, 0x0068);
     BK4829_SetAudioMute(true);
     
-    // Preparar el módem para escuchar una respuesta de inmediato
+    // Preparar el módem para escuchar una respuesta
     BK4829_PrepareFSKReceive();
 }
 
@@ -648,18 +645,21 @@ void BK4829_PrepareFSKReceive(void) {
     BK4829_WriteReg(0x59, 0x0068);
     DelayMs(10);
     
-    // 2. Configurar el módem FSK para RX (Crítico: si no se activa 0x58, no escucha nada)
-    BK4829_WriteReg(0x58, 0x00C1); // FSK Enable, RX Bandwidth 1.2K
+    // 2. Configurar el módem FSK para RX (Mismos ajustes que TX)
+    BK4829_WriteReg(0x58, 0x00C1); // FSK Enable, FSK 1.2K TX/RX
     BK4829_WriteReg(0x72, 0x3065); // Tone2 1200Hz para FSK
     BK4829_WriteReg(0x70, 0x00E0); // Enable Tone2, Gain
-    BK4829_WriteReg(0x5C, 0x5665); // Enable CRC nativo / config
+    
+    BK4829_WriteReg(0x5A, 0x5555); // Sync Byte 0, 1
+    BK4829_WriteReg(0x5B, 0x55AA); // Sync Byte 2, 3
+    BK4829_WriteReg(0x5C, 0xAA30); // Disable CRC nativo
     
     // 3. Reactivar RX FSK
     BK4829_RxEnable(true);
     BK4829_WriteReg(0x3F, 0x2000); // Activar Interrupción FSK_RX_FINISHED (Bit 13 en BK4829)
     
     BK4829_WriteReg(0x59, 0x4068); // Limpiar RX FIFO
-    BK4829_WriteReg(0x59, 0x3068); // Iniciar FSK RX
+    BK4829_WriteReg(0x59, 0x1068); // Iniciar FSK RX (Bit 12, SIN Scramble)
 }
 
 uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
