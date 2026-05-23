@@ -612,8 +612,8 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
     BK4829_WriteReg(0x5B, 0xAB45); 
     BK4829_WriteReg(0x5C, g_fsk_test_configs[g_fsk_current_cfg].crc_reg); // CRC Dinámico
     
-    BK4829_WriteReg(0x59, 0x8028); // Clear TX FIFO (Usando base 0x0028 como OEM)
-    BK4829_WriteReg(0x59, 0x0028); // Idle
+    BK4829_WriteReg(0x59, 0x8068); // Clear TX FIFO (Usando base 0x0068 como OEM)
+    BK4829_WriteReg(0x59, 0x0068); // Idle
     
     // 4. Llenar el FIFO FSK
     for (uint8_t i = 0; i < length; i += 2) {
@@ -625,17 +625,17 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
     }
     
     // El chip requiere configurar el Length DESPUÉS de llenar el FIFO en TX
-    BK4829_WriteReg(0x5D, ((length - 1) << 8)); // FSK Data Length 
+    BK4829_WriteReg(0x5D, (length << 8)); // FSK Data Length 
     
     // 5. Iniciar transmisión FSK (Bit 11 = 0x0800)
-    BK4829_WriteReg(0x59, 0x0828); 
+    BK4829_WriteReg(0x59, 0x0868); 
     
     // 6. Esperar a que termine
     uint16_t wait_ms = (length * 10) + 150;
     DelayMs(wait_ms);
     
     // 7. Apagar módem FSK de TX
-    BK4829_WriteReg(0x59, 0x0028);
+    BK4829_WriteReg(0x59, 0x0068);
     BK4829_SetAudioMute(true);
     
     // Preparar el módem para escuchar una respuesta
@@ -668,8 +668,8 @@ void BK4829_PrepareFSKReceive(void) {
     // FSK_RX_SYNC (Bit 1 = 0x0002)
     BK4829_WriteReg(0x3F, 0x3002); 
     
-    BK4829_WriteReg(0x59, 0x4028); // Limpiar RX FIFO
-    BK4829_WriteReg(0x59, 0x1028); // Iniciar FSK RX (Bit 12, SIN Scramble)
+    BK4829_WriteReg(0x59, 0x4068); // Limpiar RX FIFO (0x4000) y config (0x0068)
+    BK4829_WriteReg(0x59, 0x1068); // Iniciar FSK RX (Bit 12, SIN Scramble)
 }
 
 extern void uartSendChar(unsigned char ch);
@@ -739,16 +739,16 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
     }
     
     // Limpiar RX FIFO y reactivar para la proxima recepcion
-    BK4829_WriteReg(0x59, 0x4028);
-    BK4829_WriteReg(0x59, 0x1028);
+    BK4829_WriteReg(0x59, 0x4068);
+    BK4829_WriteReg(0x59, 0x1068);
     
     return words_read * 2;
 
 abort_rx:
     // Si hubo timeout, limpiamos FIFO y banderas para que no se quede bloqueado
     BK4829_WriteReg(0x02, 0x3002);
-    BK4829_WriteReg(0x59, 0x4028); 
-    BK4829_WriteReg(0x59, 0x1028); 
+    BK4829_WriteReg(0x59, 0x4068); 
+    BK4829_WriteReg(0x59, 0x1068); 
     return 0;
 }
 
