@@ -169,18 +169,28 @@ void VRFR_SendPayload(const char* cmd, const char* data) {
     
     uint8_t target_len = g_fsk_test_configs[g_fsk_current_cfg].payload_len;
     
-    // Inicializar todo a ceros
-    memset(packet, 0, sizeof(packet));
+    // Inicializar con patrón de reloj 0xAA para evitar pérdida de sincronía FSK
+    memset(packet, 0xAA, sizeof(packet));
     
-    // CMD (3 bytes exactos, truncar o rellenar)
+    // CMD (3 bytes exactos, sobrescribir patrón)
     strncpy((char*)packet, cmd, 3);
     
     // DATA (resto de los bytes disponibles antes del CRC)
+    uint8_t data_len = strlen(data);
     uint8_t max_data_len = target_len - 3 - 1; // 3 para CMD, 1 para CRC
-    strncpy((char*)&packet[3], data, max_data_len);
+    if (data_len > max_data_len) data_len = max_data_len;
+    
+    // Copiar la data, manteniendo el resto del buffer como 0xAA
+    memcpy(&packet[3], data, data_len);
+    
+    // Terminar el string de la data con un NULL explícito para que el receptor pueda truncar
+    // PERO solo si hay espacio (usamos un byte del padding para el null)
+    if (data_len < max_data_len) {
+        packet[3 + data_len] = '\0';
+    }
     
     // CRC se coloca siempre en el ÚLTIMO byte del target_len
-    // Calculamos CRC ignorando los ceros de padding
+    // Calculamos CRC ignorando los ceros/paddings
     packet[target_len - 1] = CalcCRC(cmd, data);
     
     // Transmitir en bloque
