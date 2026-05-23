@@ -607,8 +607,8 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
     BK4829_WriteReg(0x5D, ((length - 1) << 8)); // FSK Data Length 
     
     // 3. Limpiar FIFO y sincronizar
-    BK4829_WriteReg(0x5A, 0x5555); // Sync Byte 0, 1
-    BK4829_WriteReg(0x5B, 0x55AA); // Sync Byte 2, 3
+    BK4829_WriteReg(0x5A, 0x85CF); // Sync Byte 0, 1 (No usar 0x55 ni 0xAA aquí)
+    BK4829_WriteReg(0x5B, 0xAB45); // Sync Byte 2, 3
     BK4829_WriteReg(0x5C, 0xAA30); // Disable CRC nativo
     
     BK4829_WriteReg(0x59, 0x8068); // Clear TX FIFO
@@ -650,8 +650,8 @@ void BK4829_PrepareFSKReceive(void) {
     BK4829_WriteReg(0x72, 0x3065); // Tone2 1200Hz para FSK
     BK4829_WriteReg(0x70, 0x00E0); // Enable Tone2, Gain
     
-    BK4829_WriteReg(0x5A, 0x5555); // Sync Byte 0, 1
-    BK4829_WriteReg(0x5B, 0x55AA); // Sync Byte 2, 3
+    BK4829_WriteReg(0x5A, 0x85CF); // Sync Byte 0, 1
+    BK4829_WriteReg(0x5B, 0xAB45); // Sync Byte 2, 3
     BK4829_WriteReg(0x5C, 0xAA30); // Disable CRC nativo
     
     // 3. Reactivar RX FSK
@@ -662,10 +662,29 @@ void BK4829_PrepareFSKReceive(void) {
     BK4829_WriteReg(0x59, 0x1068); // Iniciar FSK RX (Bit 12, SIN Scramble)
 }
 
+extern void uartSendChar(unsigned char ch);
+void uartSendString(const char* str) {
+    while(*str) { uartSendChar(*str++); }
+}
+
 uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
+    // DIAGNÓSTICO: Rastrear cambios en 0x0B y 0x0C
+    static uint16_t last_reg0b = 0xFFFF;
+    static uint16_t last_reg0c = 0xFFFF;
+    
+    uint16_t reg0b = BK4829_ReadReg(0x0B);
+    uint16_t reg0c = BK4829_ReadReg(0x0C);
+    
+    if (reg0b != last_reg0b || reg0c != last_reg0c) {
+        char msg[64];
+        snprintf(msg, sizeof(msg), "\r\n[FSK] 0x0B:%04X | 0x0C:%04X\r\n", reg0b, reg0c);
+        uartSendString(msg);
+        last_reg0b = reg0b;
+        last_reg0c = reg0c;
+    }
+    
     // 1. Verificar si la interrupción de recepción FSK disparó
     // En BK4829, la bandera de FSK RX es el Bit 0 del registro 0x0C
-    uint16_t reg0c = BK4829_ReadReg(0x0C);
     if ((reg0c & 0x0001) == 0) {
         return 0; // Nada recibido
     }
