@@ -662,8 +662,11 @@ void BK4829_PrepareFSKReceive(void) {
     
     // 3. Reactivar RX FSK
     BK4829_RxEnable(true);
-    // Activar Interrupciones: FSK_RX_FINISHED (Bit 12 = 0x1000) y FSK_FIFO_ALMOST_FULL (Bit 11 = 0x0800)
-    BK4829_WriteReg(0x3F, 0x1800); 
+    // Activar Interrupciones: 
+    // FSK_RX_FINISHED (Bit 13 = 0x2000)
+    // FSK_FIFO_ALMOST_FULL (Bit 12 = 0x1000)
+    // FSK_RX_SYNC (Bit 1 = 0x0002)
+    BK4829_WriteReg(0x3F, 0x3002); 
     
     BK4829_WriteReg(0x59, 0x4028); // Limpiar RX FIFO
     BK4829_WriteReg(0x59, 0x1028); // Iniciar FSK RX (Bit 12, SIN Scramble)
@@ -678,13 +681,13 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
     uint16_t reg02 = BK4829_ReadReg(0x02);
     
     // PASO 1: Armado (Rx Sync)
-    // Monitorear FSK Rx Sync (REG_02<0> = 0x0001)
-    if ((reg02 & 0x0001) == 0) { 
+    // Monitorear FSK Rx Sync (REG_02<1> = 0x0002)
+    if ((reg02 & 0x0002) == 0) { 
         return 0; // Nada recibido aún
     }
     
-    // Limpiamos la bandera de SYNC para no re-entrar
-    BK4829_WriteReg(0x02, 0x0001);
+    // Limpiamos la bandera de SYNC escribiendo un 1 en esa posicion
+    BK4829_WriteReg(0x02, 0x0002);
     
     uint8_t target_len = g_fsk_test_configs[g_fsk_current_cfg].payload_len;
     uint8_t words_read = 0;
@@ -692,10 +695,10 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
     uint32_t start_time = g_SystemTick;
     
     // PASO 2: Drenaje Intermedio (FifoAlmostFull)
-    // Esperar a que se dispare REG_02<11> (0x0800)
+    // Esperar a que se dispare REG_02<12> (0x1000)
     while (1) {
         reg02 = BK4829_ReadReg(0x02);
-        if (reg02 & 0x0800) { 
+        if (reg02 & 0x1000) { 
             // Leer exactamente 4 palabras (8 bytes) para vaciar el FIFO sin Underflow
             for (int i = 0; i < 4; i++) {
                 uint16_t word = BK4829_ReadReg(0x5F);
@@ -704,7 +707,7 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
                 words_read++;
             }
             // Limpiar la bandera FifoAlmostFull
-            BK4829_WriteReg(0x02, 0x0800); 
+            BK4829_WriteReg(0x02, 0x1000); 
             break;
         }
         if (g_SystemTick - start_time > 150) {
@@ -713,11 +716,11 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
     }
     
     // PASO 3: El Remate (RxFinished)
-    // Esperar a que se dispare REG_02<12> (0x1000)
+    // Esperar a que se dispare REG_02<13> (0x2000)
     start_time = g_SystemTick;
     while (1) {
         reg02 = BK4829_ReadReg(0x02);
-        if (reg02 & 0x1000) { 
+        if (reg02 & 0x2000) { 
             // Leer el resto de palabras
             uint8_t words_remaining = words_expected - words_read;
             for (int i = 0; i < words_remaining; i++) {
@@ -727,7 +730,7 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
                 words_read++;
             }
             // Limpiar la bandera RxFinished
-            BK4829_WriteReg(0x02, 0x1000); 
+            BK4829_WriteReg(0x02, 0x2000); 
             break;
         }
         if (g_SystemTick - start_time > 150) {
@@ -743,7 +746,7 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
 
 abort_rx:
     // Si hubo timeout, limpiamos FIFO y banderas para que no se quede bloqueado
-    BK4829_WriteReg(0x02, 0x1801);
+    BK4829_WriteReg(0x02, 0x3002);
     BK4829_WriteReg(0x59, 0x4028); 
     BK4829_WriteReg(0x59, 0x1028); 
     return 0;
