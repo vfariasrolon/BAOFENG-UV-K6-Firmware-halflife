@@ -698,23 +698,25 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
             return 0; // No hay sync aún
         }
         
-        BK4829_WriteReg(0x02, 0x0000);
+        BK4829_WriteReg(0x02, 0x0000); // Evitar que el SYNC vuelva a disparar si se atora
         uint8_t words_read = 0;
         uint32_t timeout = g_SystemTick;
         uint8_t words_expected = target_len / 2;
         
         while (words_read < words_expected) {
             uint16_t status = BK4829_ReadReg(0x0C);
-            // Leer mientras haya datos o cuando termine (Bit 9)
-            if ((status & 0x0200) || (status & 0x0002)) { 
+            // Leer si el FIFO NO está vacío (Asumimos que Bit 9 0x0200 es FIFO_EMPTY)
+            if ((status & 0x0200) == 0) { 
                 uint16_t word = BK4829_ReadReg(0x5F);
                 out_buffer[words_read * 2] = word & 0xFF;
-                out_buffer[words_read * 2 + 1] = (word >> 8) & 0xFF;
+                if ((words_read * 2 + 1) < target_len) {
+                    out_buffer[words_read * 2 + 1] = (word >> 8) & 0xFF;
+                }
                 words_read++;
                 timeout = g_SystemTick;
             }
-            if (g_SystemTick - timeout > 100) {
-                break;
+            if (g_SystemTick - timeout > 200) {
+                break; // Timeout si no llegan más datos
             }
         }
         
@@ -724,14 +726,17 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
         return words_read * 2;
         
     } else {
-        // MODO 2: FSK_RX_FINISHED (Bit 9)
-        if ((reg0c & 0x0200) == 0) { 
+        // MODO 2: SYNC + DELAY (Esperar a SYNC, hacer un delay para que lleguen todos, y leer)
+        if ((reg0c & 0x0002) == 0) { // Bit 1 = FSK_RX_SYNC
             return 0; // Nada recibido aún
         }
         
-        BK4829_WriteReg(0x02, 0x0000); // Limpiar flag
+        BK4829_WriteReg(0x02, 0x0000); // Limpiar flags
         
-        // Vaciar el FIFO de golpe
+        // 16 bytes a 1200bps toman ~106ms. Esperamos un poco más.
+        DelayMs(130); 
+        
+        // Vaciar el FIFO de golpe (esperamos que ya estén todos ahí)
         for (uint8_t i = 0; i < target_len; i += 2) {
             uint16_t word = BK4829_ReadReg(0x5F);
             out_buffer[i] = word & 0xFF;
