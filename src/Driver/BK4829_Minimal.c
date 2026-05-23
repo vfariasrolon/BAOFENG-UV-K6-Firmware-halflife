@@ -608,7 +608,7 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
     // 3. Limpiar FIFO y sincronizar (Valores exactos del OEM)
     BK4829_WriteReg(0x5A, 0x85CF); 
     BK4829_WriteReg(0x5B, 0xAB45); 
-    BK4829_WriteReg(0x5C, 0x5665); // Habilitar CRC nativo (Valor por defecto del BK4829)
+    BK4829_WriteReg(0x5C, 0xAA30); // Deshabilitar CRC nativo
     
     BK4829_WriteReg(0x59, 0x8028); // Clear TX FIFO (Usando base 0x0028 como OEM)
     BK4829_WriteReg(0x59, 0x0028); // Idle
@@ -655,7 +655,7 @@ void BK4829_PrepareFSKReceive(void) {
     
     BK4829_WriteReg(0x5A, 0x85CF); 
     BK4829_WriteReg(0x5B, 0xAB45); 
-    BK4829_WriteReg(0x5C, 0x5665); // Habilitar CRC nativo (Valor por defecto)
+    BK4829_WriteReg(0x5C, 0xAA30); // Deshabilitar CRC nativo
     
     // 3. Reactivar RX FSK
     BK4829_RxEnable(true);
@@ -686,27 +686,16 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
         last_reg0c = reg0c;
     }
     
-    // 1. Verificar si la interrupción de recepción FSK disparó o el FIFO está casi lleno
+    // 1. Verificar si la interrupción de recepción FSK disparó
     // En BK4829, la bandera de FSK RX Finished es el Bit 0 de 0x0C.
-    // Pero si recibimos 16 bytes, el FIFO (que es pequeño) se llena y activa Bit 1 (Almost Full)
-    // quedándose atascado si no lo leemos.
-    if ((reg0c & 0x0003) == 0) { // Check Bit 0 or Bit 1
+    if ((reg0c & 0x0001) == 0) { 
         return 0; // Nada recibido
     }
     
     // Limpiar flag
     BK4829_WriteReg(0x02, 0x0000);
     
-    // 2. Leer la longitud del payload recibido (0x5D alto)
-    // El chip BK4829 almacena la longitud RX (menos 1) en los bits [15:8]
-    uint16_t reg5d = BK4829_ReadReg(0x5D);
-    uint8_t length = ((reg5d >> 8) & 0xFF) + 1;
-    
-    // Para FSK, a veces el chip devuelve la longitud configurada, no la real.
-    // Vamos a leer el buffer completo si la longitud reportada parece inválida.
-    if (length <= 1 || length > 64) {
-        length = 64; // Leer todo si el chip no lo reporta bien
-    }
+    uint8_t length = 16; // Sabemos que transmitimos exactamente 16 bytes siempre
     
     // 3. Vaciar el FIFO a nuestro buffer (0x5F)
     for (uint8_t i = 0; i < length; i += 2) {
