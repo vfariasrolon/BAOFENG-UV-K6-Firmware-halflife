@@ -693,9 +693,9 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
     bool use_drain = g_fsk_test_configs[g_fsk_current_cfg].use_drain_mode;
     
     if (use_drain) {
-        // MODO 1: DRAIN (Extraer mientras haya datos, ignorar bit 0)
-        if ((reg0c & 0x0002) != 0) { 
-            return 0; // FIFO vacío
+        // MODO 1: DRAIN (Esperar a SYNC y luego drenar)
+        if ((reg0c & 0x0002) == 0) { // Bit 1 = FSK_RX_SYNC
+            return 0; // No hay sync aún
         }
         
         BK4829_WriteReg(0x02, 0x0000);
@@ -705,7 +705,8 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
         
         while (words_read < words_expected) {
             uint16_t status = BK4829_ReadReg(0x0C);
-            if ((status & 0x0002) == 0) {
+            // Leer mientras haya datos o cuando termine (Bit 9)
+            if ((status & 0x0200) || (status & 0x0002)) { 
                 uint16_t word = BK4829_ReadReg(0x5F);
                 out_buffer[words_read * 2] = word & 0xFF;
                 out_buffer[words_read * 2 + 1] = (word >> 8) & 0xFF;
@@ -723,8 +724,8 @@ uint8_t BK4829_GetFSKData(uint8_t* out_buffer) {
         return words_read * 2;
         
     } else {
-        // MODO 2: BIT0 (Esperar a Finished)
-        if ((reg0c & 0x0001) == 0) { 
+        // MODO 2: FSK_RX_FINISHED (Bit 9)
+        if ((reg0c & 0x0200) == 0) { 
             return 0; // Nada recibido aún
         }
         
