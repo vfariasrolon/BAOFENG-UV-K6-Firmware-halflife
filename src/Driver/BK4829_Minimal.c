@@ -604,7 +604,7 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
     
     // 2. Configurar el módem FSK para TX
     BK4829_WriteReg(0x58, 0x00C1); // FSK Enable, FSK 1.2K
-    BK4829_WriteReg(0x72, 0x306A); // Frecuencia exacta 1200Hz OEM
+    BK4829_WriteReg(0x72, 0x0400); // Frecuencia exacta 1200Hz OEM
     BK4829_WriteReg(0x70, 0x0040); // IMPORTANTE: TX gain DEBE ser 0x0040 según OEM
     
     // 3. Limpiar FIFO y sincronizar (Valores exactos del OEM)
@@ -645,12 +645,13 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
 void BK4829_PrepareFSKReceive(void) {
     // 1. Apagar interrupciones y limpiar
     BK4829_WriteReg(0x3F, 0x0000);
-    BK4829_WriteReg(0x59, 0x0028);
+    BK4829_WriteReg(0x59, 0x0068);
     DelayMs(10);
     
     // 2. Configurar el módem FSK para RX 
-    BK4829_WriteReg(0x58, 0x00C1); // FSK Enable, FSK 1.2K
-    BK4829_WriteReg(0x72, 0x306A); // Frecuencia exacta 1200Hz OEM
+    // ---> AQUI ESTA EL PARCHE: 0x00C3 en lugar de 0x00C1 (Inversión de Polaridad RX) <---
+    BK4829_WriteReg(0x58, 0x00C1);
+    BK4829_WriteReg(0x72, 0x0400); // Frecuencia exacta 1200Hz OEM
     BK4829_WriteReg(0x70, 0x0000); // IMPORTANTE: RX gain DEBE ser 0x0000 según OEM
     
     uint8_t target_len = g_fsk_test_configs[g_fsk_current_cfg].payload_len;

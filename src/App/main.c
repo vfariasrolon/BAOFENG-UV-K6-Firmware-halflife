@@ -156,20 +156,61 @@ int main(void)
     TimeManager_AddTask(AudioEngine_Task, 1); // Gestor de secuencias de audio
     
     // El envío FSK automático se ha desactivado para permitir pruebas manuales con la Matriz FSK.
+    // Variables para nuestro disparador manual antes del while
+    static uint8_t ptt_last_state = 1; 
+    uint8_t test_payload[16] = {
+    0xDE, 0xAD, 0xBE, 0xEF, 
+    0x11, 0x22, 0x33, 0x44, 
+    0x55, 0x66, 0x77, 0x88, 
+    0x99, 0xAA, 0xBB, 0xCC  
+    };
+
     while(1)
     {
         TimeManager_RunScheduler();
+        KEY_ScanTask();        // Esto actualiza el buffer del teclado
+        ExtraKeys_ScanTask();  // Esto actualiza el PTT
         
-        KEY_ScanTask();
-        ExtraKeys_ScanTask();
+        // --- 1. DISPARADOR MANUAL DE TX (PTT) ---
+        uint8_t ptt_current = Debug_ReadPTT();
+        if (ptt_current == 0 && ptt_last_state == 1) {
+    BK4829_SendFSKData(test_payload, 16); // <--- ENVIAR 16 BYTES
+}
+        ptt_last_state = ptt_current;
         
-
-        if(g_10msFlag) { App_10msTask(); }
-        if(g_50msFlag) { App_50msTask(); }
-        if(g_100msFlag) { App_100msTask(); }
-        if(g_500msFlag) { App_500msTask(); }
+        // --- 2. LECTOR DE TECLADO (MATRIZ FSK) ---
+        uint8_t keycode = GetKeyCode();
+        if (keycode != KEYID_NONE) {
+            uint8_t nueva_cfg = 255; // Bandera de "no cambió"
+            
+            // Mapeamos los botones físicos a los índices de tu arreglo (0 a 7)
+            if (keycode == KEYID_1) nueva_cfg = 0;
+            else if (keycode == KEYID_2) nueva_cfg = 1;
+            else if (keycode == KEYID_3) nueva_cfg = 2;
+            else if (keycode == KEYID_4) nueva_cfg = 3;
+            else if (keycode == KEYID_5) nueva_cfg = 4;
+            else if (keycode == KEYID_6) nueva_cfg = 5;
+            else if (keycode == KEYID_7) nueva_cfg = 6;
+            else if (keycode == KEYID_8) nueva_cfg = 7;
+            
+            // Si el usuario presionó una tecla válida del 1 al 8
+            if (nueva_cfg != 255) {
+                g_fsk_current_cfg = nueva_cfg; // Actualizar variable global
+                
+                // A) Limpiar y Repintar la pantalla para ver en qué CFG estamos
+                SC5260_ClearArea(0, 0, 128, 64, 0);
+                VRFR_RenderDiagnostics(); 
+                LCD_UpdateFullScreen();
+                
+                // B) ¡CRÍTICO! Aplicar la nueva configuración al chip inmediatamente
+                // Esto reinicia el RX con el nuevo CRC y Length.
+                BK4829_PrepareFSKReceive(); 
+                
+                // Un bip de confirmación opcional (si tu audio está encendido)
+                // BeepOut(BEEP_KEY); 
+            }
+        }
         
-        AppRunTask();
         WDT_Refresh();
     }
 }
