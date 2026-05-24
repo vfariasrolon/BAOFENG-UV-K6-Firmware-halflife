@@ -453,7 +453,7 @@ void BK4829_RxEnable(bool enable) {
         BK4829_SetGpio(0x0008, 0); // RF_GPIO3 = LOW
         BK4829_SetGpio(0x0004, 0); // RF_GPIO2 = LOW
         
-        BK4829_WriteReg(0x30, 0xBFF1); // MODO RX ACTIVO NATIVO (0xBFF1)
+        //BK4829_WriteReg(0x30, 0xBFF1); // MODO RX ACTIVO NATIVO (0xBFF1)
     } else {
         BK4829_WriteReg(0x30, 0x0000); // IDLE
     }
@@ -643,34 +643,20 @@ void BK4829_SendFSKData(const uint8_t* pData, uint8_t length) {
 }
 
 void BK4829_PrepareFSKReceive(void) {
-    // 1. Apagar interrupciones y limpiar
-    BK4829_WriteReg(0x3F, 0x0000);
-    BK4829_WriteReg(0x59, 0x0068);
+    // ... Reseteo inicial ...
+    BK4829_WriteReg(0x30, 0x0000);
     DelayMs(10);
     
-    // 2. Configurar el módem FSK para RX 
-    // ---> AQUI ESTA EL PARCHE: 0x00C3 en lugar de 0x00C1 (Inversión de Polaridad RX) <---
-    BK4829_WriteReg(0x58, 0x00C1);
-    BK4829_WriteReg(0x72, 0x0400); // Frecuencia exacta 1200Hz OEM
-    BK4829_WriteReg(0x70, 0x0000); // IMPORTANTE: RX gain DEBE ser 0x0000 según OEM
+    // FORZAR GANANCIA MÁXIMA EN RF (¡Cuidado, esto meterá muchísimo ruido!)
+    BK4829_WriteReg(0x36, 0x00FF); // PA Bias al máximo (Aumenta ganancia de entrada)
+    BK4829_WriteReg(0x70, 0x00FF); // RX Gain al máximo absoluto
     
-    uint8_t target_len = g_fsk_test_configs[g_fsk_current_cfg].payload_len;
-    BK4829_WriteReg(0x5D, (target_len << 8)); // Dinámico: RX espera EXACTAMENTE length bytes
+    // ... Mantén tu configuración de 1200 baudios ...
+    BK4829_WriteReg(0x72, 0x0400); 
+    BK4829_WriteReg(0x58, 0x00C1); 
     
-    BK4829_WriteReg(0x5A, 0x85CF); 
-    BK4829_WriteReg(0x5B, 0xAB45); 
-    BK4829_WriteReg(0x5C, g_fsk_test_configs[g_fsk_current_cfg].crc_reg); // CRC Dinámico
-    
-    // 3. Reactivar RX FSK
-    BK4829_RxEnable(true);
-    // Activar Interrupciones: 
-    // FSK_RX_FINISHED (Bit 13 = 0x2000)
-    // FSK_FIFO_ALMOST_FULL (Bit 12 = 0x1000)
-    // FSK_RX_SYNC (Bit 1 = 0x0002)
-    BK4829_WriteReg(0x3F, 0x3002); 
-    
-    BK4829_WriteReg(0x59, 0x4068); // Limpiar RX FIFO (0x4000) y config (0x0068)
-    BK4829_WriteReg(0x59, 0x1068); // Iniciar FSK RX (Bit 12, SIN Scramble)
+    // ... Iniciar ...
+    BK4829_WriteReg(0x59, 0x1068); 
 }
 
 extern void uartSendChar(unsigned char ch);
@@ -844,4 +830,12 @@ void uartSendChar(unsigned char ch) {
     USART1->TDR = (ch & (uint16_t)0x01FF);
     uint32_t timeout = 100000;
     while (((USART1->ISR & USART_FLAG_TXE) == (uint16_t)RESET) && --timeout); 
+}
+
+// Fuerza al chip a permanecer en modo FSK ignorando al Squelch y al modo Voz
+void BK4829_ForceFSKLock(void) {
+    BK4829_WriteReg(0x30, 0x0000); // Stop
+    BK4829_WriteReg(0x59, 0x1068); // Forzar FSK RX activo
+    BK4829_WriteReg(0x31, 0x0000); // Bypass squelch
+    BK4829_WriteReg(0x01, 0x0000); // Bypass filtros de voz
 }

@@ -170,12 +170,22 @@ int main(void)
         TimeManager_RunScheduler();
         KEY_ScanTask();        // Esto actualiza el buffer del teclado
         ExtraKeys_ScanTask();  // Esto actualiza el PTT
+        BK4829_ForceFSKLock();
         
         // --- 1. DISPARADOR MANUAL DE TX (PTT) ---
         uint8_t ptt_current = Debug_ReadPTT();
         if (ptt_current == 0 && ptt_last_state == 1) {
-    BK4829_SendFSKData(test_payload, 16); // <--- ENVIAR 16 BYTES
-}
+            // A) Pequeña pausa para que el hardware del radio (PTT) se estabilice
+            DelayMs(20); 
+            
+            // B) Preámbulo de "Despertar" (muy importante para el BK4829)
+            // El receptor necesita ver al menos 8-16 bytes de '0x55' para sincronizar su reloj
+            uint8_t preambulo[8] = {0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55};
+            BK4829_SendFSKData(preambulo, 8);
+            
+            // C) Ahora enviamos tus datos reales
+            BK4829_SendFSKData(test_payload, 16); 
+        }
         ptt_last_state = ptt_current;
         
         // --- 2. LECTOR DE TECLADO (MATRIZ FSK) ---
